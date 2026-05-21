@@ -1,0 +1,195 @@
+{
+    "layer": "top",
+    "position": "top",
+    "height": 38,
+    "margin-top": 8,
+    "margin-left": 12,
+    "margin-right": 12,
+    "spacing": 6,
+
+    "modules-left":   ["hyprland/workspaces"],
+    "modules-center": ["clock"],
+    "modules-right":  ["tray", "pulseaudio", "network", "battery"],
+
+    "hyprland/workspaces": {
+        "format": "⌘{name} <span font_family='sketchybar-app-font' rise='-3000'>{windows}</span>",
+        "format-window-separator": " ",
+        "show-special": false,
+        "all-outputs": true,
+        "persistent-workspaces": { "DP-1": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] },
+        "on-click": "activate",
+
+        "window-rewrite-default": ":default:",
+        "window-rewrite": {
+            "class<kitty>":                  ":kitty:",
+            "class<keybinds-cheatsheet>":   "",
+
+            "class<.*[Aa]lacritty.*>":      ":alacritty:",
+            "class<.*[Ff]oot.*>":           ":terminal:",
+            "class<.*[Ww]ezterm.*>":        ":wezterm:",
+            "class<.*[Gg]hostty.*>":        ":ghostty:",
+            "class<.*[Kk]onsole.*>":        ":terminal:",
+            "class<.*[Tt]erminator.*>":     ":terminal:",
+            "class<.*gnome-terminal.*>":    ":terminal:",
+            "class<.*xterm.*>":             ":terminal:",
+
+            "class<.*[Ff]irefox.*>":        ":firefox:",
+            "class<.*[Cc]hromium.*>":       "",
+            "class<.*[Cc]hrome.*>":         ":google_chrome:",
+            "class<.*[Bb]rave.*>":          ":brave_browser:",
+            "class<.*[Vv]ivaldi.*>":        ":vivaldi:",
+            "class<.*[Ee]dge.*>":           ":microsoft_edge:",
+            "class<.*[Ll]ibrewolf.*>":      "",
+            "class<.*[Tt]or-[Bb]rowser.*>": ":tor_browser:",
+            "class<.*[Zz]en-[Bb]rowser.*>": ":zen_browser:",
+
+            "class<.*[Cc]ode.*>":          ":code:",
+            "class<.*VSCodium.*>":         ":code:",
+            "class<.*[Ss]ublime.*>":        ":sublime_text:",
+            "class<.*[Aa]tom.*>":           ":atom:",
+            "class<.*[Nn]eovide.*>":        ":neovide:",
+            "class<.*[Ii]ntellij.*>":       ":idea:",
+            "class<.*jetbrains-.*>":        ":jetbrains_toolbox:",
+            "class<.*[Pp]ycharm.*>":        ":pycharm:",
+            "class<.*[Aa]ndroid-[Ss]tudio.*>":":android_studio:",
+            "class<.*[Zz]ed.*>":            "",
+            "class<.*[Cc]ursor.*>":         ":cursor:",
+
+            "class<.*[Dd]iscord.*>":        ":discord:",
+            "class<.*discordapp.*>":        ":discord:",
+            "class<.*[Vv]esktop.*>":        ":vesktop:",
+            "class<.*[Vv]encord.*>":        ":discord:",
+            "class<.*[Ss]lack.*>":          ":slack:",
+            "class<.*[Ee]lement.*>":        ":element:",
+            "class<.*[Tt]elegram.*>":       ":telegram:",
+            "class<.*[Ss]ignal.*>":         ":signal:",
+            "class<.*[Ww]hats[Aa]pp.*>":    "",
+            "class<.*[Mm]attermost.*>":     ":mattermost:",
+            "class<.*[Tt]eams.*>":          "",
+            "class<.*[Ss]kype.*>":          ":skype:",
+            "class<.*[Zz]oom.*>":           ":zoom:",
+            "class<.*[Ff]erdium.*>":        "",
+
+            "class<.*[Tt]hunderbird.*>":    ":thunderbird:",
+            "class<.*[Ee]volution.*>":      "",
+            "class<.*[Gg]eary.*>":          "",
+
+            "class<.*[Ss]potify.*>":        ":spotify:",
+            "class<.*[Vv]lc.*>":            ":vlc:",
+            "class<.*mpv.*>":               ":mpv:",
+            "class<.*[Aa]udacity.*>":       ":audacity:",
+            "class<.*[Yy]ou[Tt]ube.*>":     ":youtube:",
+
+            "class<.*[Ll]ibreoffice.*>":    ":libreoffice:",
+            "class<.*[Oo]nly[Oo]ffice.*>":  "",
+            "class<.*[Oo]bsidian.*>":       ":obsidian:",
+            "class<.*[Nn]otion.*>":         ":notion:",
+            "class<.*[Jj]oplin.*>":         ":joplin:",
+            "class<.*[Ll]ogseq.*>":         ":logseq:",
+            "class<.*[Nn]extcloud.*>":      ":nextcloud:",
+
+            "class<.*[Gg]imp.*>":           ":gimp:",
+            "class<.*[Kk]rita.*>":          ":krita:",
+            "class<.*[Ii]nkscape.*>":       ":inkscape:",
+            "class<.*[Bb]lender.*>":        ":blender:",
+            "class<.*[Dd]a[Vv]inci.*>":     ":davinciresolve:",
+            "class<.*resolve.*>":           ":davinciresolve:",
+            "class<.*[Kk]denlive.*>":       "",
+            "class<.*[Dd]arktable.*>":      "",
+            "class<.*[Rr]aw[Tt]herapee.*>": "",
+
+            "class<.*[Ss]team.*>":          ":steam:",
+            "class<.*[Ll]utris.*>":         "",
+            "class<.*[Hh]eroic.*>":         "󰊠",
+            "class<.*[Bb]ottles.*>":        "",
+            "class<.*[Rr]etro[Aa]rch.*>":   "",
+            "class<.*[Mm]inecraft.*>":      ":minecraft:",
+            "class<.*[Pp]rism[Ll]auncher.*>":"",
+
+            "class<.*[Nn]autilus.*>":       "",
+            "class<.*[Nn]emo.*>":           "",
+            "class<.*[Tt]hunar.*>":         "",
+            "class<.*[Dd]olphin.*>":        ":dolphin:",
+            "class<.*[Pp]cmanfm.*>":        "",
+            "class<.*[Yy]azi.*>":           ":yazi:",
+            "class<.*[Rr]anger.*>":         "",
+            "class<.*[Ff]ilelight.*>":      "",
+
+            "class<.*pavucontrol.*>":       "",
+            "class<.*[Bb]lueman.*>":        ":bluetooth:",
+            "class<.*[Mm]ission-[Cc]enter.*>":"",
+            "class<.*nvtop.*>":             "",
+            "class<.*virt-manager.*>":      "",
+            "class<.*[Vv]irtual[Bb]ox.*>":  ":virtualbox:",
+            "class<.*[Gg]parted.*>":        "",
+
+            "class<.*obs.*>":               ":obsstudio:",
+            "class<.*OBS.*>":               ":obsstudio:",
+            "class<.*[Cc]hatterino.*>":     "",
+
+            "class<.*[Zz]athura.*>":        "",
+            "class<.*[Oo]kular.*>":         "",
+            "class<.*[Ee]vince.*>":         "",
+            "class<.*[Xx]reader.*>":        "",
+            "class<.*[Cc]alibre.*>":        ":calibre:",
+
+            "class<.*[Bb]itwarden.*>":      ":bit_warden:",
+            "class<.*[Kk]ee[Pp]ass.*>":     "",
+            "class<.*1[Pp]assword.*>":      ":one_password:",
+            "class<.*proton-pass.*>":       "",
+
+            "class<.*[Cc]laude.*>":         ":claude:",
+            "class<.*[Cc]hat[Gg][Pp][Tt].*>":":chatgpt_atlas:",
+            "class<.*[Oo]llama.*>":         ":ollama:",
+
+            "class<.*qbittorrent.*>":       ":qbittorrent:",
+            "class<.*transmission.*>":      ":transmission:",
+
+            "title<.*[Nn]vim.*>":          "",
+            "title<.*[Vv]im.*>":           "",
+            "title<.*htop.*>":             "",
+            "title<.*btop.*>":             "",
+            "title<.*ssh.*>":              "",
+            "title<.*claude.*>":           ":claude:",
+            "title<.*git .*>":             ""
+        }
+    },
+
+    "hyprland/window": {
+        "format": "{}",
+        "max-length": 60,
+        "separate-outputs": true
+    },
+
+    "clock": {
+        "format": "{:%a %d %b  %H:%M}",
+        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
+    },
+
+    "cpu":    { "format": "  {usage}%" },
+    "memory": { "format": "  {percentage}%" },
+
+    "battery": {
+        "states": { "warning": 25, "critical": 10 },
+        "format":          "{icon}  {capacity}%",
+        "format-charging": "  {capacity}%",
+        "format-plugged":  "  {capacity}%",
+        "format-icons":    ["", "", "", "", ""]
+    },
+
+    "network": {
+        "format-wifi":         "  {essid}",
+        "format-ethernet":     "  {ifname}",
+        "format-disconnected": "  offline",
+        "tooltip-format":      "{ifname}: {ipaddr}"
+    },
+
+    "pulseaudio": {
+        "format":          "{icon}  {volume}%",
+        "format-muted":    "  muted",
+        "format-icons":    { "default": ["", "", ""] },
+        "on-click":        "pavucontrol"
+    },
+
+    "tray": { "spacing": 8 }
+}

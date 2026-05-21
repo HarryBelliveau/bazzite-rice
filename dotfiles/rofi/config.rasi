@@ -16,8 +16,8 @@ configuration {
     bg-alt:     #313244;
     fg:         #cdd6f4;
     fg-alt:     #a6adc8;
-    blue:       #89b4fa;
-    mauve:      #cba6f7;
+    blue:       #ffa7b9;
+    mauve:      #ffa7b9;
     red:        #f38ba8;
 
     background-color:           transparent;

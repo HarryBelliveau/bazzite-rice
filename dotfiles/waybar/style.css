@@ -6,15 +6,15 @@
 @define-color subtext #a6adc8;
 @define-color surface #313244;
 @define-color overlay #6c7086;
-@define-color blue    #89b4fa;
-@define-color mauve   #cba6f7;
+@define-color blue    #ffa7b9;
+@define-color mauve   #ffa7b9;
 @define-color red     #f38ba8;
 @define-color green   #a6e3a1;
 @define-color yellow  #f9e2af;
 
 * {
     font-family: "JetBrains Mono", "Symbols Nerd Font Mono", sans-serif;
-    font-size: 13px;
+    font-size: 15px;
     min-height: 0;
 }
 
@@ -51,10 +51,10 @@ window#waybar {
     background-color: alpha(@base, 0.85);
     border: 1px solid alpha(@overlay, 0.35);
     border-radius: 14px;
-    padding: 2px 12px;
+    padding: 2px 14px;
     margin: 0 3px;
     color: @subtext;
-    min-height: 26px;
+    min-height: 30px;
     transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
 }
 

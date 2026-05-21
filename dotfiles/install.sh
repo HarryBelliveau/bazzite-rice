@@ -25,6 +25,19 @@ find "$SRC" -type f ! -name install.sh -print0 | while IFS= read -r -d '' src; d
     echo "linked: $rel"
 done
 
+FONT_DIR="$HOME/.local/share/fonts"
+FONT_PATH="$FONT_DIR/sketchybar-app-font.ttf"
+if [[ ! -f "$FONT_PATH" ]]; then
+    mkdir -p "$FONT_DIR"
+    if curl -fsSL -o "$FONT_PATH" \
+        https://github.com/kvndrsslr/sketchybar-app-font/releases/latest/download/sketchybar-app-font.ttf; then
+        fc-cache -f "$FONT_DIR" >/dev/null
+        echo "installed font: sketchybar-app-font"
+    else
+        echo "warn: failed to download sketchybar-app-font (waybar workspace icons will fall back)"
+    fi
+fi
+
 echo
 echo "Done. Reload Hyprland with: hyprctl reload"
 echo "If you backed up real files, they're at *.bak.$STAMP -- review and delete when satisfied."
