@@ -1,0 +1,35 @@
+---
+name: bazzite-rice
+description: Bazzite GNOME + Hyprland (Method B custom image)
+base-image: ghcr.io/ublue-os/bazzite-gnome
+image-version: stable
+
+modules:
+  - type: dnf
+    repos:
+      copr:
+        - solopasha/hyprland
+    install:
+      packages:
+        - hyprland
+        - xdg-desktop-portal-hyprland
+        - hyprpaper
+        - hyprlock
+        - hypridle
+        - hyprpicker
+        - hyprshot
+        - hyprcursor
+        - waybar
+        - rofi-wayland
+        - swww
+        - SwayNotificationCenter
+        - wlogout
+        - grim
+        - slurp
+        - cliphist
+        - wl-clipboard
+        - kitty
+        - vulkan-validation-layers
+        - jetbrains-mono-nerd-fonts
+
+  - type: signing
