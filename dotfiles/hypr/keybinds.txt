@@ -10,6 +10,7 @@
     SUPER + RETURN              kitty terminal
     SUPER + SPACE               rofi app launcher
     SUPER + E                   nautilus (file manager — not installed by default)
+    SUPER + G                   Steam
     SUPER + L                   hyprlock (lock screen)
     SUPER + ESCAPE              wlogout (power menu)
     SUPER + SHIFT + M           exit Hyprland (panic bind)
