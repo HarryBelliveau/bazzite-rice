@@ -21,7 +21,6 @@ modules:
         - hyprcursor
         - waybar
         - rofi-wayland
-        - swww
         - SwayNotificationCenter
         - wlogout
         - grim
