@@ -1,0 +1,59 @@
+                              HYPRLAND KEYBINDS
+                              =================
+                      (press q or Esc to close this window)
+
+  Mod = SUPER (Windows key)
+
+
+  APPS & SESSION
+  --------------
+    SUPER + RETURN              kitty terminal
+    SUPER + SPACE               rofi app launcher
+    SUPER + E                   nautilus (file manager — not installed by default)
+    SUPER + L                   hyprlock (lock screen)
+    SUPER + ESCAPE              wlogout (power menu)
+    SUPER + SHIFT + M           exit Hyprland (panic bind)
+    SUPER + \                   this cheatsheet
+
+
+  WINDOWS
+  -------
+    SUPER + Q                   close active window
+    SUPER + F                   toggle fullscreen
+    SUPER + V                   toggle floating
+    SUPER + ← / → / ↑ / ↓       move focus between tiled windows
+    SUPER + LMB drag            move floating window with mouse
+    SUPER + RMB drag            resize floating window with mouse
+
+
+  SCREENSHOTS  (hyprshot)
+  -----------------------
+    Print                       full monitor → ~/Pictures
+    SUPER + Print               active window
+    SUPER + SHIFT + Print       region (drag to select)
+    SUPER + SHIFT + S           region   (alias of SHIFT+Print)
+
+
+  CLIPBOARD
+  ---------
+    SUPER + C                   clipboard history popup (cliphist → rofi)
+
+
+  MEDIA / VOLUME  (work on dedicated media keys)
+  ---------------------------------------------
+    Volume Up / Down            change default sink volume by 5%
+    Mute                        toggle default sink mute
+    Mic Mute                    toggle default mic mute
+    Play / Pause / Next / Prev  playerctl (whichever player is active)
+
+
+  WORKSPACES
+  ----------
+    SUPER + 1 ... 9             switch to workspace N
+    SUPER + 0                   switch to workspace 10
+    SUPER + SHIFT + 1 ... 9     move active window to workspace N
+    SUPER + SHIFT + 0           move active window to workspace 10
+
+
+  Config file:   ~/.config/hypr/hyprland.conf
+  This file:     ~/.config/hypr/keybinds.txt
