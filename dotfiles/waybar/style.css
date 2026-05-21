@@ -13,7 +13,7 @@
 @define-color yellow  #f9e2af;
 
 * {
-    font-family: "JetBrainsMono Nerd Font", sans-serif;
+    font-family: "JetBrains Mono", "Symbols Nerd Font Mono", sans-serif;
     font-size: 13px;
     min-height: 0;
 }

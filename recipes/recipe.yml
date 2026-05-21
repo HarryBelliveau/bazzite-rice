@@ -8,7 +8,7 @@ modules:
   - type: dnf
     repos:
       copr:
-        - solopasha/hyprland
+        - nett00n/hyprland
     install:
       packages:
         - hyprland
@@ -27,9 +27,8 @@ modules:
         - grim
         - slurp
         - cliphist
-        - wl-clipboard
         - kitty
         - vulkan-validation-layers
-        - jetbrains-mono-nerd-fonts
+        - jetbrains-mono-fonts
 
   - type: signing
