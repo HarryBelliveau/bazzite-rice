@@ -23,8 +23,16 @@ window#waybar {
     color: @text;
 }
 
-/* Floating pill: the whole bar reads as one island */
-.modules-left, .modules-center, .modules-right {
+/* Left section is transparent so workspaces can render as individual pills */
+.modules-left {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    margin: 0 4px;
+}
+
+/* Center + right still share one pill each */
+.modules-center, .modules-right {
     background-color: alpha(@base, 0.85);
     border: 1px solid alpha(@overlay, 0.4);
     border-radius: 14px;
@@ -32,25 +40,43 @@ window#waybar {
     margin: 0 4px;
 }
 
-#workspaces button {
-    color: @subtext;
-    padding: 0 6px;
+/* Each workspace = its own island, mac-style */
+#workspaces {
     background: transparent;
-    border-radius: 10px;
+    padding: 0;
+    margin: 0;
+}
+
+#workspaces button {
+    background-color: alpha(@base, 0.85);
+    border: 1px solid alpha(@overlay, 0.35);
+    border-radius: 14px;
+    padding: 2px 12px;
+    margin: 0 3px;
+    color: @subtext;
+    min-height: 26px;
+    transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+#workspaces button:hover {
+    background-color: alpha(@blue, 0.12);
+    border-color: alpha(@blue, 0.4);
+    color: @text;
 }
 
 #workspaces button.active {
     color: @blue;
-    background: alpha(@blue, 0.15);
+    border-color: @blue;
+    background-color: alpha(@blue, 0.18);
 }
 
 #workspaces button.urgent {
     color: @red;
+    border-color: @red;
 }
 
-#window {
-    color: @subtext;
-    padding: 0 8px;
+#workspaces button.empty {
+    opacity: 0.55;
 }
 
 #clock {
@@ -59,7 +85,7 @@ window#waybar {
     padding: 0 10px;
 }
 
-#cpu, #memory, #battery, #network, #pulseaudio, #tray {
+#battery, #network, #pulseaudio, #tray {
     padding: 0 8px;
 }
 

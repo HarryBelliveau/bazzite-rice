@@ -27,6 +27,7 @@ modules:
         - slurp
         - cliphist
         - kitty
+        - zsh
         - vulkan-validation-layers
         - jetbrains-mono-fonts
 
