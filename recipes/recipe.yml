@@ -15,7 +15,9 @@ modules:
       packages:
         - hyprland
         - xdg-desktop-portal-hyprland
-        - hyprpaper
+        # Wallpaper daemon: swww (better-behaved than hyprpaper v0.8.4 and
+        # supports per-monitor unload, which mpvpaper relies on).
+        - swww
         - hyprlock
         - hypridle
         - hyprpicker

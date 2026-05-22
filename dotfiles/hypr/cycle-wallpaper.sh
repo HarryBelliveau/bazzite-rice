@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Cycle through wallpapers in <repo>/wallpapers and apply them per monitor.
-#   - Images (.png .jpg .jpeg .webp .jxl)  -> hyprpaper IPC
-#   - Videos (.mp4 .webm .mkv .mov .gif)   -> mpvpaper (live wallpaper)
+#   - Images (.png .jpg .jpeg .webp .jxl .gif)  -> swww
+#   - Videos (.mp4 .webm .mkv .mov)             -> mpvpaper (live wallpaper)
 # Each monitor has its own index, so DP-1 and DP-2 cycle independently.
+#
+# Note: animated gifs are treated as images and animate fine in swww. Only
+# real video containers go through mpvpaper.
 #
 # Usage:
 #   cycle-wallpaper.sh                    # advance every monitor
@@ -23,9 +26,9 @@ mkdir -p "$STATE_DIR"
 mapfile -d '' -t walls < <(
     find "$WALL_DIR" -maxdepth 1 -type f \
         \( -iname '*.png'  -o -iname '*.jpg' -o -iname '*.jpeg' \
-        -o -iname '*.webp' -o -iname '*.jxl' \
+        -o -iname '*.webp' -o -iname '*.jxl' -o -iname '*.gif' \
         -o -iname '*.mp4'  -o -iname '*.webm' -o -iname '*.mkv' \
-        -o -iname '*.mov'  -o -iname '*.gif' \) \
+        -o -iname '*.mov' \) \
         -print0 | sort -z
 )
 
@@ -37,12 +40,21 @@ fi
 
 is_video() {
     case "${1,,}" in
-        *.mp4|*.webm|*.mkv|*.mov|*.gif) return 0 ;;
+        *.mp4|*.webm|*.mkv|*.mov) return 0 ;;
         *) return 1 ;;
     esac
 }
 
-# Kill any mpvpaper currently driving the given monitor.
+ensure_swww_running() {
+    pgrep -x swww-daemon >/dev/null && return
+    setsid swww-daemon >/dev/null 2>&1 < /dev/null &
+    # Wait until daemon's socket is ready (swww commands hang otherwise).
+    for _ in {1..20}; do
+        swww query >/dev/null 2>&1 && return
+        sleep 0.1
+    done
+}
+
 stop_mpvpaper_for() {
     local mon="$1"
     local pidfile="$STATE_DIR/mpvpaper-$mon.pid"
@@ -51,22 +63,31 @@ stop_mpvpaper_for() {
         [[ -n "$pid" ]] && kill "$pid" 2>/dev/null || true
         rm -f "$pidfile"
     fi
-    # Fallback: kill by argv match in case the pidfile is stale.
     pkill -f "mpvpaper.* $mon " 2>/dev/null || true
 }
 
 apply_image() {
     local mon="$1" wall="$2"
     stop_mpvpaper_for "$mon"
-    # Restart hyprpaper if it isn't running (mpvpaper might have crowded it out).
-    pgrep -x hyprpaper >/dev/null || { hyprpaper >/dev/null 2>&1 & sleep 0.3; }
-    hyprctl hyprpaper wallpaper "${mon},${wall}" >/dev/null
+    ensure_swww_running
+    # Subtle fade between wallpapers. Tweak to taste.
+    swww img --outputs "$mon" \
+        --transition-type any --transition-fps 60 --transition-duration 1 \
+        "$wall" >/dev/null
 }
 
 apply_video() {
     local mon="$1" wall="$2"
+    if ! command -v mpvpaper >/dev/null; then
+        notify-send -u normal "Wallpaper" \
+            "mpvpaper not installed -- can't play $(basename "$wall")" \
+            2>/dev/null || true
+        return
+    fi
     stop_mpvpaper_for "$mon"
-    # mpvpaper options: silent, loop, hardware decode if available.
+    # Release this monitor from swww so mpvpaper can claim the surface cleanly.
+    ensure_swww_running
+    swww clear --outputs "$mon" 000000 >/dev/null 2>&1 || true
     setsid mpvpaper -o "no-audio loop-file=inf hwdec=auto" "$mon" "$wall" \
         >/dev/null 2>&1 < /dev/null &
     echo "$!" > "$STATE_DIR/mpvpaper-$mon.pid"
@@ -83,7 +104,6 @@ apply_wallpaper() {
 
 action="${1:-next}"
 
-# Special-case 'pick': $2 is the path, $3 (optional) is the monitor.
 if [[ "$action" == "pick" ]]; then
     pick_path="${2:-}"; pick_mon="${3:-}"
     [[ -z "$pick_path" ]] && { echo "pick requires a path" >&2; exit 2; }
