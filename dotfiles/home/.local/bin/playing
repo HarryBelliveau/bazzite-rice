@@ -1,0 +1,264 @@
+#!/usr/bin/env python3
+"""playing — now-playing TUI dashboard with ASCII backdrop.
+
+Polls playerctl ~5x/sec, draws the fastfetch ASCII (dimmed) as a backdrop,
+and overlays a centered card with title, artist, album, status, progress
+bar, and player. Keys: space=play/pause, n=next, p=prev,
+[ / ] = -10s / +10s, s=stop, q/Esc/Ctrl-C=quit.
+"""
+from __future__ import annotations
+
+import os
+import select
+import shutil
+import signal
+import subprocess
+import sys
+import termios
+import time
+import tty
+from pathlib import Path
+
+PINK    = "\x1b[38;2;255;167;184m"
+TEXT    = "\x1b[38;2;205;214;244m"
+SUB     = "\x1b[38;2;166;173;200m"
+DIM     = "\x1b[38;2;108;112;134m"
+ACCENT  = "\x1b[38;2;249;226;175m"
+GREEN   = "\x1b[38;2;166;227;161m"
+BACKDROP = "\x1b[38;2;90;58;68m"   # very muted pink, sits behind the card
+BOLD    = "\x1b[1m"
+ITALIC  = "\x1b[3m"
+RESET   = "\x1b[0m"
+
+STATUS_GLYPH = {"Playing": "▶", "Paused": "⏸", "Stopped": "⏹"}
+
+ASCII_PATH = Path.home() / ".config" / "fastfetch" / "ascii.txt"
+
+
+def load_ascii() -> list[str]:
+    try:
+        text = ASCII_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    if text.startswith("$1"):
+        text = text[2:]
+    return text.splitlines()
+
+
+def playerctl(*args: str) -> str:
+    try:
+        r = subprocess.run(
+            ["playerctl", *args],
+            capture_output=True, text=True, timeout=0.3,
+        )
+        return r.stdout.strip() if r.returncode == 0 else ""
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return ""
+
+
+def get_state() -> dict:
+    fmt = (
+        "{{playerName}}|{{status}}|{{xesam:title}}|{{xesam:artist}}|"
+        "{{xesam:album}}|{{position}}|{{mpris:length}}"
+    )
+    raw = playerctl("metadata", "--format", fmt)
+    if not raw:
+        return {"player": "", "status": "", "title": "", "artist": "",
+                "album": "", "pos": 0, "length": 0}
+    parts = (raw.split("|") + [""] * 7)[:7]
+
+    def _int(s: str) -> int:
+        try:
+            return int(s)
+        except ValueError:
+            return 0
+
+    return {
+        "player": parts[0],
+        "status": parts[1] or "Stopped",
+        "title":  parts[2],
+        "artist": parts[3],
+        "album":  parts[4],
+        "pos":    _int(parts[5]),
+        "length": _int(parts[6]),
+    }
+
+
+def fmt_time(us: int) -> str:
+    s = max(0, us // 1_000_000)
+    return f"{s // 60}:{s % 60:02d}"
+
+
+def truncate(s: str, n: int) -> str:
+    return s if len(s) <= n else s[: n - 1] + "…"
+
+
+def progress_bar(pos: int, length: int, width: int) -> str:
+    if length <= 0:
+        return DIM + "─" * width + RESET
+    frac = max(0.0, min(1.0, pos / length))
+    filled = int(frac * width)
+    rem = width - filled
+    return PINK + "━" * filled + DIM + "─" * rem + RESET
+
+
+def write(s: str) -> None:
+    sys.stdout.write(s)
+
+
+def render_backdrop(ascii_lines: list[str], cols: int, rows: int) -> str:
+    if not ascii_lines:
+        return ""
+    art_h = len(ascii_lines)
+    art_w = max((len(line) for line in ascii_lines), default=0)
+    if art_w == 0:
+        return ""
+    # Center the art in the terminal; clip if it overflows.
+    top = max(0, (rows - art_h) // 2)
+    left = max(0, (cols - art_w) // 2)
+    visible_h = min(art_h, rows - top)
+    out = [BACKDROP]
+    for i in range(visible_h):
+        line = ascii_lines[i]
+        if len(line) > cols - left:
+            line = line[: cols - left]
+        # \x1b[r;cH = move cursor to row r, col c (1-indexed)
+        out.append(f"\x1b[{top + i + 1};{left + 1}H{line}")
+    out.append(RESET)
+    return "".join(out)
+
+
+def main() -> None:
+    ascii_lines = load_ascii()
+
+    fd = sys.stdin.fileno() if sys.stdin.isatty() else None
+    old = termios.tcgetattr(fd) if fd is not None else None
+
+    def restore() -> None:
+        write(RESET + "\x1b[?25h\x1b[2J\x1b[H")
+        sys.stdout.flush()
+        if fd is not None and old is not None:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+    def on_sig(*_):
+        restore()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, on_sig)
+    signal.signal(signal.SIGTERM, on_sig)
+    if fd is not None:
+        tty.setcbreak(fd)
+    write("\x1b[?25l\x1b[2J")
+    sys.stdout.flush()
+
+    target_dt = 1 / 5
+    try:
+        while True:
+            t_frame = time.time()
+
+            if fd is not None:
+                r, _, _ = select.select([fd], [], [], 0)
+                if r:
+                    c = os.read(fd, 16)
+                    if b"q" in c or b"\x1b" in c:
+                        break
+                    if b" " in c:
+                        playerctl("play-pause")
+                    elif b"n" in c:
+                        playerctl("next")
+                    elif b"p" in c:
+                        playerctl("previous")
+                    elif b"]" in c:
+                        playerctl("position", "10+")
+                    elif b"[" in c:
+                        playerctl("position", "10-")
+                    elif b"s" in c:
+                        playerctl("stop")
+
+            cols, rows = shutil.get_terminal_size((80, 24))
+            cols = max(40, cols)
+            rows = max(12, rows)
+            st = get_state()
+
+            card_w = min(cols - 4, 70)
+
+            title  = truncate(st["title"]  or "—",       card_w - 4)
+            artist = truncate(st["artist"] or "unknown", card_w - 4)
+            album  = truncate(st["album"]  or "",        card_w - 4)
+            player = st["player"] or "no player"
+            status = st["status"] or "Stopped"
+            glyph  = STATUS_GLYPH.get(status, "·")
+
+            top_b    = "╭" + "─" * (card_w - 2) + "╮"
+            bottom_b = "╰" + "─" * (card_w - 2) + "╯"
+            blank    = "│" + " " * (card_w - 2) + "│"
+
+            def card_line(content: str, visible_len: int) -> str:
+                pad = card_w - 2 - visible_len
+                left = pad // 2
+                right = pad - left
+                return "│" + " " * left + content + " " * right + "│"
+
+            status_color = GREEN if status == "Playing" else (ACCENT if status == "Paused" else DIM)
+            status_str   = f"{status_color}{glyph}  {status}{RESET}"
+            status_vis   = len(glyph) + 2 + len(status)
+
+            title_str  = f"{BOLD}{PINK}{title}{RESET}"
+            artist_str = f"{TEXT}{artist}{RESET}"
+            album_str  = f"{ITALIC}{SUB}{album}{RESET}" if album else ""
+            player_str = f"{DIM}via {player}{RESET}"
+
+            bar_w   = card_w - 18
+            bar     = progress_bar(st["pos"], st["length"], bar_w)
+            elapsed = fmt_time(st["pos"])
+            total   = fmt_time(st["length"]) if st["length"] > 0 else "--:--"
+            time_line_content = f"{SUB}{elapsed}{RESET} {bar} {SUB}{total}{RESET}"
+            time_line_vis = len(elapsed) + 1 + bar_w + 1 + len(total)
+
+            lines: list[tuple[str, int]] = [
+                (top_b,   card_w),
+                (blank,   card_w),
+                (card_line(status_str, status_vis),  card_w),
+                (blank,   card_w),
+                (card_line(title_str, len(title)),   card_w),
+                (card_line(artist_str, len(artist)), card_w),
+            ]
+            if album:
+                lines.append((card_line(album_str, len(album)), card_w))
+            lines += [
+                (blank, card_w),
+                (card_line(time_line_content, time_line_vis), card_w),
+                (blank, card_w),
+                (card_line(player_str, len("via ") + len(player)), card_w),
+                (blank, card_w),
+                (bottom_b, card_w),
+            ]
+
+            help_str = "space play/pause · n next · p prev · [ ] seek · q quit"
+            help_line = f"{DIM}{help_str}{RESET}"
+
+            card_h = len(lines)
+            card_top = max(0, (rows - card_h - 2) // 2)
+            card_left = max(0, (cols - card_w) // 2)
+
+            out = ["\x1b[H\x1b[2J"]
+            out.append(render_backdrop(ascii_lines, cols, rows))
+            for i, (content, _vlen) in enumerate(lines):
+                row = card_top + i + 1
+                out.append(f"\x1b[{row};{card_left + 1}H{content}")
+            help_row = min(rows, card_top + card_h + 2)
+            help_col = max(1, (cols - len(help_str)) // 2 + 1)
+            out.append(f"\x1b[{help_row};{help_col}H{help_line}")
+
+            write("".join(out))
+            sys.stdout.flush()
+
+            elapsed_s = time.time() - t_frame
+            if elapsed_s < target_dt:
+                time.sleep(target_dt - elapsed_s)
+    finally:
+        restore()
+
+
+if __name__ == "__main__":
+    main()

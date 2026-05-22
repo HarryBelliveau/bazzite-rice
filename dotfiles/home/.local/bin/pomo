@@ -1,0 +1,226 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["textual>=0.85"]
+# ///
+"""pomo — pomodoro timer + task board TUI."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from textual.app import App, ComposeResult
+from textual.binding import Binding
+from textual.containers import Vertical
+from textual.reactive import reactive
+from textual.screen import ModalScreen
+from textual.widgets import (
+    Digits,
+    Footer,
+    Header,
+    Input,
+    Label,
+    ListItem,
+    ListView,
+    Tab,
+    Tabs,
+)
+
+DATA_DIR = Path.home() / ".local" / "share" / "pomo"
+TASKS_FILE = DATA_DIR / "tasks.json"
+
+DURATIONS = {"focus": 25 * 60, "short": 5 * 60, "long": 15 * 60}
+LABELS = {"focus": "Focus", "short": "Short Break", "long": "Long Break"}
+STATUS_ICONS = {"todo": "○", "doing": "▶", "done": "✓"}
+STATUS_NEXT = {"todo": "doing", "doing": "done", "done": "todo"}
+
+
+def load_tasks() -> list[dict]:
+    if TASKS_FILE.exists():
+        try:
+            return json.loads(TASKS_FILE.read_text())
+        except json.JSONDecodeError:
+            return []
+    return []
+
+
+def save_tasks(tasks: list[dict]) -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    TASKS_FILE.write_text(json.dumps(tasks, indent=2))
+
+
+class AddTaskScreen(ModalScreen[str | None]):
+    BINDINGS = [Binding("escape", "cancel", "Cancel")]
+    CSS = """
+    AddTaskScreen { align: center middle; }
+    #box { width: 60; height: auto; padding: 1 2; border: round $accent; background: $surface; }
+    """
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="box"):
+            yield Label("New task:")
+            yield Input(placeholder="task description", id="task-input")
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.dismiss(event.value.strip() or None)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+class PomoApp(App):
+    TITLE = "pomo"
+    SUB_TITLE = "focus + tasks"
+    CSS = """
+    Screen { layout: horizontal; }
+    #left { width: 60%; padding: 1 2; }
+    #right { width: 40%; border-left: solid $primary; padding: 1 2; }
+    Tabs { margin-bottom: 1; }
+    Digits { width: 100%; height: 7; content-align: center middle; color: $accent; }
+    #session-label { width: 100%; content-align: center middle; text-style: bold; margin-top: 1; }
+    #status-label { width: 100%; content-align: center middle; color: $text-muted; margin-top: 1; }
+    #board-title { text-style: bold; color: $accent; margin-bottom: 1; }
+    #board-summary { color: $text-muted; margin-top: 1; }
+    ListView { height: 1fr; }
+    """
+    BINDINGS = [
+        Binding("space", "toggle", "Play/Pause"),
+        Binding("tab", "cycle_session", "Session"),
+        Binding("r", "reset", "Reset"),
+        Binding("a", "add_task", "Add"),
+        Binding("x", "cycle_task", "Status"),
+        Binding("d", "delete_task", "Delete"),
+        Binding("q", "quit", "Quit"),
+    ]
+
+    session: reactive[str] = reactive("focus")
+    remaining: reactive[int] = reactive(DURATIONS["focus"])
+    running: reactive[bool] = reactive(False)
+    tasks: reactive[list] = reactive(list, recompose=False)
+
+    def compose(self) -> ComposeResult:
+        yield Header(show_clock=True)
+        with Vertical(id="left"):
+            yield Tabs(
+                Tab("Focus", id="focus"),
+                Tab("Short Break", id="short"),
+                Tab("Long Break", id="long"),
+            )
+            yield Digits("25:00", id="timer")
+            yield Label("Focus", id="session-label")
+            yield Label("paused — press SPACE to start", id="status-label")
+        with Vertical(id="right"):
+            yield Label("My Board", id="board-title")
+            yield ListView(id="tasks")
+            yield Label("", id="board-summary")
+        yield Footer()
+
+    def on_mount(self) -> None:
+        self.tasks = load_tasks()
+        self.refresh_tasks()
+        self.set_interval(1.0, self.tick)
+        self.update_display()
+
+    def refresh_tasks(self, select_index: int | None = None) -> None:
+        lv = self.query_one("#tasks", ListView)
+        prev_index = lv.index if select_index is None else select_index
+        lv.clear()
+        for t in self.tasks:
+            icon = STATUS_ICONS.get(t["status"], "?")
+            lv.append(ListItem(Label(f"{icon}  {t['title']}")))
+        if self.tasks:
+            target = prev_index if prev_index is not None else 0
+            target = max(0, min(target, len(self.tasks) - 1))
+            lv.index = target
+        done = sum(1 for t in self.tasks if t["status"] == "done")
+        doing = sum(1 for t in self.tasks if t["status"] == "doing")
+        todo = sum(1 for t in self.tasks if t["status"] == "todo")
+        total = len(self.tasks)
+        pct = int(100 * done / total) if total else 0
+        self.query_one("#board-summary", Label).update(
+            f"{pct}% done  |  {done} done · {doing} doing · {todo} todo"
+        )
+
+    def update_display(self) -> None:
+        m, s = divmod(self.remaining, 60)
+        self.query_one("#timer", Digits).update(f"{m:02d}:{s:02d}")
+        self.query_one("#session-label", Label).update(LABELS[self.session])
+        if self.remaining == 0:
+            status = "done! press SPACE to restart"
+        elif self.running:
+            status = "running"
+        else:
+            status = "paused — press SPACE to start"
+        self.query_one("#status-label", Label).update(status)
+
+    def tick(self) -> None:
+        if self.running and self.remaining > 0:
+            self.remaining -= 1
+            self.update_display()
+            if self.remaining == 0:
+                self.running = False
+                self.bell()
+                self.update_display()
+
+    def action_toggle(self) -> None:
+        if self.remaining == 0:
+            self.remaining = DURATIONS[self.session]
+        self.running = not self.running
+        self.update_display()
+
+    def _set_session(self, sess: str) -> None:
+        if sess == self.session:
+            return
+        self.session = sess
+        self.remaining = DURATIONS[sess]
+        self.running = False
+        tabs = self.query_one(Tabs)
+        if tabs.active != sess:
+            tabs.active = sess
+        self.update_display()
+
+    def action_cycle_session(self) -> None:
+        order = ["focus", "short", "long"]
+        i = order.index(self.session)
+        self._set_session(order[(i + 1) % len(order)])
+
+    def action_reset(self) -> None:
+        self.running = False
+        self.remaining = DURATIONS[self.session]
+        self.update_display()
+
+    def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
+        if event.tab and event.tab.id:
+            self._set_session(event.tab.id)
+
+    def action_add_task(self) -> None:
+        def added(value: str | None) -> None:
+            if value:
+                self.tasks = self.tasks + [{"title": value, "status": "todo"}]
+                save_tasks(self.tasks)
+                self.refresh_tasks(select_index=len(self.tasks) - 1)
+
+        self.push_screen(AddTaskScreen(), added)
+
+    def action_cycle_task(self) -> None:
+        lv = self.query_one("#tasks", ListView)
+        idx = lv.index
+        if idx is None or not self.tasks:
+            return
+        cur = self.tasks[idx]["status"]
+        self.tasks[idx]["status"] = STATUS_NEXT.get(cur, "todo")
+        save_tasks(self.tasks)
+        self.refresh_tasks(select_index=idx)
+
+    def action_delete_task(self) -> None:
+        lv = self.query_one("#tasks", ListView)
+        idx = lv.index
+        if idx is None or not self.tasks:
+            return
+        del self.tasks[idx]
+        save_tasks(self.tasks)
+        self.refresh_tasks(select_index=min(idx, len(self.tasks) - 1) if self.tasks else None)
+
+
+if __name__ == "__main__":
+    PomoApp().run()
