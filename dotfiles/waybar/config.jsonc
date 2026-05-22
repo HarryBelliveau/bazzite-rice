@@ -9,6 +9,8 @@
         "name": "secondary",
         "output": "DP-2",
 
+        "modules-right": ["tray", "pulseaudio", "network"],
+
         "hyprland/workspaces": {
             "format": "⌘{name}",
             "all-outputs": false,

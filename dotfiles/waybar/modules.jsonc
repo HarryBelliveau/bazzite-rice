@@ -186,7 +186,7 @@
 
 "network": {
         "format-wifi":         "  {essid}",
-        "format-ethernet":     "  {ifname}",
+        "format-ethernet":     "  ↓{bandwidthDownBits} ↑{bandwidthUpBits}",
         "format-disconnected": "  offline",
         "tooltip-format-wifi":     "{essid} ({signalStrength}%)\n{ifname}: {ipaddr}/{cidr}\nGateway: {gwaddr}\n↓ {bandwidthDownBits}  ↑ {bandwidthUpBits}",
         "tooltip-format-ethernet": "{ifname}: {ipaddr}/{cidr}\nGateway: {gwaddr}\n↓ {bandwidthDownBits}  ↑ {bandwidthUpBits}",
