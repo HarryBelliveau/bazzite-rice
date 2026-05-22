@@ -8,7 +8,7 @@
     "spacing": 6,
 
     "modules-left":   ["hyprland/workspaces"],
-    "modules-center": ["clock"],
+    "modules-center": ["mpris", "clock"],
     "modules-right":  ["custom/cpu", "custom/gpu", "tray", "pulseaudio", "network"],
 
     "hyprland/workspaces": {
@@ -165,6 +165,36 @@
         "format":          "{:%a %d %b  %H:%M}",
         "tooltip-format":  "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
         "on-click":        "flatpak run org.gnome.Calendar"
+    },
+
+    "mpris": {
+        "format":         "{player_icon}  {dynamic}",
+        "format-paused":  "{status_icon}  <i>{dynamic}</i>",
+        "format-stopped": "",
+        "format-spotify":        "♪  {dynamic}  ♪",
+        "format-paused-spotify": "♪  <i>{dynamic}</i>  ♪",
+        "dynamic-order":  ["title", "artist"],
+        "dynamic-separator": "  —  ",
+        "dynamic-len":    50,
+        "title-len":      35,
+        "artist-len":     25,
+        "player-icons": {
+            "default":      "▶",
+            "spotify":      "",
+            "mpv":          "",
+            "firefox":      "",
+            "chromium":     ""
+        },
+        "status-icons": {
+            "paused":  "⏸",
+            "playing": "▶",
+            "stopped": "⏹"
+        },
+        "tooltip-format": "{player} · {status}\n{title}\n{artist} — {album}",
+        "on-click":         "playerctl play-pause",
+        "on-click-right":   "kitty --class=playing-tui -- playing",
+        "on-scroll-up":     "playerctl next",
+        "on-scroll-down":   "playerctl previous"
     },
 
     "cpu":    { "format": "  {usage}%" },

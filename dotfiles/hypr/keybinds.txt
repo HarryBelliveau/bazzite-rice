@@ -75,6 +75,7 @@
   -----------
     SUPER + SHIFT + B           restart waybar (status bar)
     SUPER + SHIFT + R           reload workspace-watcher.sh (after editing rules)
+    SUPER + CTRL + SHIFT + R    re-apply hyprland.conf (if monitors/binds drop)
 
 
   WAYBAR CLICKS  (right cluster)
@@ -82,6 +83,9 @@
     CPU module       left-click  → btop in kitty
     GPU module       left-click  → btop in kitty
     Clock            left-click  → GNOME Calendar
+    Media (mpris)    left-click  → play/pause
+                     right-click → playing TUI in kitty
+                     scroll      → next / previous track
     Pulseaudio       left-click  → pavucontrol (mixer)
                      right-click → toggle sink mute
                      middle-click → toggle mic mute
@@ -91,13 +95,34 @@
     Tray icons       (per-app menus from nm-applet, blueman, etc.)
 
 
+  TERMINAL WIDGETS  (run in any kitty window)
+  -------------------------------------------
+    pomo                        pomodoro + task board (space play/pause,
+                                tab cycle session, a add task, x cycle
+                                status, d delete, r reset, q quit)
+    music                       spotify_player TUI (Premium required)
+    viz                         cava audio visualizer
+    playing                     now-playing dashboard (space, n, p, [/]
+                                seek, s stop, q quit)
+    portal                      animated Rick & Morty portal
+    cube                        spinning 3D wireframe cube
+
+
   RESCUE (if Hyprland gets weird)
   -------------------------------
-    From a TTY (Ctrl+Alt+F3) or other terminal:
-      hyprctl dispatch submap reset            # free a stuck super key
-      hyprctl keyword monitor "DP-2, ..."      # re-apply monitor layout
-      hyprctl reload                           # reload conf
+    Symptom: SUPER keybinds stop working AND/OR a monitor drops to the wrong
+    position/refresh-rate. This usually means hyprland.conf reverted to
+    built-in defaults. Verify with: `hyprctl getoption general:border_size`
+    -- if it shows `set: false`, the config is not applied.
+
+    Fix from any terminal:
+      hyprctl reload                           # re-apply hyprland.conf  (primary fix)
+      hyprctl dispatch submap reset            # free a stuck submap
+      hyprctl keyword monitor "DP-2, ..."      # one-off monitor override
       ~/.config/hypr/reload-watcher.sh         # restart workspace-watcher
+
+    If even your terminal is unreachable, drop to a TTY (Ctrl+Alt+F3),
+    log in, and: `hyprctl -i 0 reload`
 
 
   Config file:   ~/.config/hypr/hyprland.conf
