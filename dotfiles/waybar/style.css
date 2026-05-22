@@ -85,12 +85,13 @@ window#waybar {
     padding: 0 10px;
 }
 
-#battery, #network, #pulseaudio, #tray {
+#network, #pulseaudio, #tray,
+#custom-cpu, #custom-gpu {
     padding: 0 8px;
 }
 
-#battery.warning  { color: @yellow; }
-#battery.critical { color: @red; }
-#battery.charging { color: @green; }
-
 #network.disconnected { color: @red; }
+
+#custom-cpu, #custom-gpu          { color: @subtext; }
+#custom-cpu.warning, #custom-gpu.warning   { color: @yellow; }
+#custom-cpu.critical, #custom-gpu.critical { color: @red; }

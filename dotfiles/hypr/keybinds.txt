@@ -9,7 +9,7 @@
   --------------
     SUPER + RETURN              kitty terminal
     SUPER + SPACE               rofi app launcher
-    SUPER + E                   nautilus (file manager — not installed by default)
+    SUPER + E                   nautilus (file manager)
     SUPER + G                   Steam
     SUPER + L                   hyprlock (lock screen)
     SUPER + ESCAPE              wlogout (power menu)
@@ -25,6 +25,29 @@
     SUPER + ← / → / ↑ / ↓       move focus between tiled windows
     SUPER + LMB drag            move floating window with mouse
     SUPER + RMB drag            resize floating window with mouse
+
+
+  WORKSPACES
+  ----------
+    SUPER + 1 ... 9             switch to workspace N
+    SUPER + 0                   switch to workspace 10
+    SUPER + SHIFT + 1 ... 9     move active window to workspace N
+    SUPER + SHIFT + 0           move active window to workspace 10
+    SUPER + O                   swap workspaces between DP-1 and DP-2
+
+
+  WALLPAPERS
+  ----------
+    SUPER + SHIFT + P           waypaper (GUI picker)
+    SUPER + W                   enter wallpaper submap, then:
+                                  1                 cycle DP-1 wallpaper (next)
+                                  2                 cycle DP-2 wallpaper (next)
+                                  SHIFT + 1         DP-1 previous
+                                  SHIFT + 2         DP-2 previous
+                                  Esc / Ret / Spc   exit submap
+                                (submap auto-exits after 3 s)
+    Wallpapers live in: <repo>/wallpapers/
+    Images use swww, videos (.mp4/.webm/.mkv/.mov) use mpvpaper.
 
 
   SCREENSHOTS  (hyprshot)
@@ -48,12 +71,33 @@
     Play / Pause / Next / Prev  playerctl (whichever player is active)
 
 
-  WORKSPACES
-  ----------
-    SUPER + 1 ... 9             switch to workspace N
-    SUPER + 0                   switch to workspace 10
-    SUPER + SHIFT + 1 ... 9     move active window to workspace N
-    SUPER + SHIFT + 0           move active window to workspace 10
+  MAINTENANCE
+  -----------
+    SUPER + SHIFT + B           restart waybar (status bar)
+    SUPER + SHIFT + R           reload workspace-watcher.sh (after editing rules)
+
+
+  WAYBAR CLICKS  (right cluster)
+  ------------------------------
+    CPU module       left-click  → btop in kitty
+    GPU module       left-click  → btop in kitty
+    Clock            left-click  → GNOME Calendar
+    Pulseaudio       left-click  → pavucontrol (mixer)
+                     right-click → toggle sink mute
+                     middle-click → toggle mic mute
+                     scroll      → volume ±2%
+    Network          left-click  → nm-connection-editor
+                     right-click → GNOME Control Center → Network
+    Tray icons       (per-app menus from nm-applet, blueman, etc.)
+
+
+  RESCUE (if Hyprland gets weird)
+  -------------------------------
+    From a TTY (Ctrl+Alt+F3) or other terminal:
+      hyprctl dispatch submap reset            # free a stuck super key
+      hyprctl keyword monitor "DP-2, ..."      # re-apply monitor layout
+      hyprctl reload                           # reload conf
+      ~/.config/hypr/reload-watcher.sh         # restart workspace-watcher
 
 
   Config file:   ~/.config/hypr/hyprland.conf

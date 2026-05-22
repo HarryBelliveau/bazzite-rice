@@ -9,7 +9,7 @@
 
     "modules-left":   ["hyprland/workspaces"],
     "modules-center": ["clock"],
-    "modules-right":  ["tray", "pulseaudio", "network", "battery"],
+    "modules-right":  ["custom/cpu", "custom/gpu", "tray", "pulseaudio", "network"],
 
     "hyprland/workspaces": {
         "format": "⌘{name} <span font_family='sketchybar-app-font' rise='-3000'>{windows}</span>",
@@ -162,34 +162,53 @@
     },
 
     "clock": {
-        "format": "{:%a %d %b  %H:%M}",
-        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
+        "format":          "{:%a %d %b  %H:%M}",
+        "tooltip-format":  "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
+        "on-click":        "flatpak run org.gnome.Calendar"
     },
 
     "cpu":    { "format": "  {usage}%" },
     "memory": { "format": "  {percentage}%" },
 
-    "battery": {
-        "states": { "warning": 25, "critical": 10 },
-        "format":          "{icon}  {capacity}%",
-        "format-charging": "  {capacity}%",
-        "format-plugged":  "  {capacity}%",
-        "format-icons":    ["", "", "", "", ""]
+    "custom/cpu": {
+        "exec":          "~/.config/waybar/scripts/cpu-stats.sh",
+        "return-type":   "json",
+        "interval":      2,
+        "on-click":      "kitty --class=sys-monitor -- btop"
     },
 
-    "network": {
+    "custom/gpu": {
+        "exec":          "~/.config/waybar/scripts/gpu-stats.sh",
+        "return-type":   "json",
+        "interval":      2,
+        "on-click":      "kitty --class=sys-monitor -- btop"
+    },
+
+"network": {
         "format-wifi":         "  {essid}",
         "format-ethernet":     "  {ifname}",
         "format-disconnected": "  offline",
-        "tooltip-format":      "{ifname}: {ipaddr}"
+        "tooltip-format-wifi":     "{essid} ({signalStrength}%)\n{ifname}: {ipaddr}/{cidr}\nGateway: {gwaddr}\n↓ {bandwidthDownBits}  ↑ {bandwidthUpBits}",
+        "tooltip-format-ethernet": "{ifname}: {ipaddr}/{cidr}\nGateway: {gwaddr}\n↓ {bandwidthDownBits}  ↑ {bandwidthUpBits}",
+        "tooltip-format-disconnected": "offline",
+        "on-click":            "nm-connection-editor",
+        "on-click-right":      "gnome-control-center network"
     },
 
     "pulseaudio": {
-        "format":          "{icon}  {volume}%",
-        "format-muted":    "  muted",
-        "format-icons":    { "default": ["", "", ""] },
-        "on-click":        "pavucontrol"
+        "format":            "{icon}  {volume}%",
+        "format-muted":      "  muted",
+        "format-icons":      { "default": ["", "", ""] },
+        "tooltip-format":    "{desc}\n{volume}% via {format_source}",
+        "scroll-step":       2,
+        "on-click":          "pavucontrol",
+        "on-click-right":    "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+        "on-click-middle":   "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
     },
 
-    "tray": { "spacing": 8 }
+    "tray": {
+        "icon-size": 18,
+        "spacing":   8,
+        "show-passive-items": true
+    }
 }
