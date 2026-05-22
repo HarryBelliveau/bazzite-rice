@@ -30,5 +30,12 @@ modules:
         - zsh
         - vulkan-validation-layers
         - jetbrains-mono-fonts
+        # --- GUI helpers (auth dialogs, audio/network/bluetooth tray, Qt theming) ---
+        - hyprpolkitagent
+        - pavucontrol
+        - network-manager-applet
+        - blueman
+        - qt6ct
+        - kvantum
 
   - type: signing
