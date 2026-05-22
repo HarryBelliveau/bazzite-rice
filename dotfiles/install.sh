@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Symlink everything under dotfiles/ into ~/.config/, preserving any pre-existing
 # real files as <file>.bak.<timestamp>. Idempotent: re-running just refreshes links.
+#
+# Files under dotfiles/home/ are symlinked into $HOME directly instead of
+# $XDG_CONFIG_HOME (for ~/.zshrc, ~/.p10k.zsh, and other $HOME-rooted dotfiles).
 set -euo pipefail
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -11,7 +14,11 @@ mkdir -p "$DEST"
 
 find "$SRC" -type f ! -name install.sh -print0 | while IFS= read -r -d '' src; do
     rel="${src#"$SRC"/}"
-    dst="$DEST/$rel"
+    if [[ "$rel" == home/* ]]; then
+        dst="$HOME/${rel#home/}"
+    else
+        dst="$DEST/$rel"
+    fi
     mkdir -p "$(dirname "$dst")"
 
     if [[ -L "$dst" ]]; then
