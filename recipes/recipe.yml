@@ -9,6 +9,8 @@ modules:
     repos:
       copr:
         - nett00n/hyprland
+        # solopasha/hyprland for the live-wallpaper stack and nwg-look.
+        - solopasha/hyprland
     install:
       packages:
         - hyprland
@@ -37,5 +39,12 @@ modules:
         - blueman
         - qt6ct
         - kvantum
+        - nwg-look
+        # --- Live wallpaper stack ---
+        # mpvpaper plays videos as wallpapers; waypaper is a GUI picker that
+        # drives mpvpaper/hyprpaper/swww. mpv is the video backend mpvpaper needs.
+        - mpvpaper
+        - waypaper
+        - mpv
 
   - type: signing
