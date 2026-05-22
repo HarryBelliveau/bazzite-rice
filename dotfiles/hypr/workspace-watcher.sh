@@ -13,7 +13,7 @@ set -u
 
 declare -A RULES=(
     # ---- Desktop 1: terminal, file explorer, programming ----
-    ['^kitty$']=1
+    # ['^kitty$']=1
     ['[Nn]autilus']=1
     ['^[Cc]ode$']=1
     ['[Kk]ate']=1
