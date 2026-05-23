@@ -93,6 +93,20 @@ def truncate(s: str, n: int) -> str:
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
+def marquee(s: str, n: int, frame: int, frames_per_step: int = 2,
+            sep: str = "   •   ") -> str:
+    """Return an n-wide slice of `s` that scrolls left over time.
+
+    `frame` advances once per render tick; the visible window steps one
+    character every `frames_per_step` ticks. Falls back to `s` when it fits.
+    """
+    if len(s) <= n:
+        return s
+    full = s + sep
+    step = (frame // max(1, frames_per_step)) % len(full)
+    return (full + full)[step : step + n]
+
+
 def progress_bar(pos: int, length: int, width: int) -> str:
     if length <= 0:
         return DIM + "─" * width + RESET
@@ -152,9 +166,11 @@ def main() -> None:
     sys.stdout.flush()
 
     target_dt = 1 / 5
+    frame = 0
     try:
         while True:
             t_frame = time.time()
+            frame += 1
 
             if fd is not None:
                 r, _, _ = select.select([fd], [], [], 0)
@@ -182,9 +198,10 @@ def main() -> None:
 
             card_w = min(cols - 4, 70)
 
-            title  = truncate(st["title"]  or "—",       card_w - 4)
-            artist = truncate(st["artist"] or "unknown", card_w - 4)
-            album  = truncate(st["album"]  or "",        card_w - 4)
+            title_w = card_w - 4
+            title  = marquee(st["title"] or "—",      title_w, frame)
+            artist = truncate(st["artist"] or "unknown", title_w)
+            album  = truncate(st["album"]  or "",        title_w)
             player = st["player"] or "no player"
             status = st["status"] or "Stopped"
             glyph  = STATUS_GLYPH.get(status, "·")

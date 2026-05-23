@@ -14,6 +14,9 @@ import threading
 import time
 
 HIDE_AFTER_PAUSE = 20.0  # seconds since last Playing before we hide
+SCROLL_TICK      = 0.4   # seconds between marquee frames
+MAX_BODY         = 40    # title+artist chars before scrolling kicks in
+SCROLL_SEP       = "   •   "
 
 ICONS = {
     "spotify":  "♪",
@@ -38,10 +41,25 @@ state = {
     "last_play": 0.0,  # monotonic timestamp of most recent "Playing"
 }
 
+scroll = {"frame": 0, "key": ""}
+_last_emit = {"text": None}
+
+
+def marquee(s: str, n: int, frame: int, sep: str = SCROLL_SEP) -> str:
+    if len(s) <= n:
+        return s
+    full = s + sep
+    step = frame % len(full)
+    return (full + full)[step : step + n]
+
 
 def emit(payload: dict) -> None:
-    sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    txt = json.dumps(payload, ensure_ascii=False)
+    if txt == _last_emit["text"]:
+        return
+    sys.stdout.write(txt + "\n")
     sys.stdout.flush()
+    _last_emit["text"] = txt
 
 
 def hidden() -> dict:
@@ -53,7 +71,13 @@ def render(player: str, status: str, title: str, artist: str, album: str) -> dic
         return hidden()
 
     body_plain = "  —  ".join(p for p in (title, artist) if p)
-    body = html.escape(body_plain)
+    key = f"{player}\x1f{title}\x1f{artist}"
+    with state_lock:
+        if key != scroll["key"]:
+            scroll["key"] = key
+            scroll["frame"] = 0
+        frame = scroll["frame"]
+    body = html.escape(marquee(body_plain, MAX_BODY, frame))
 
     if player.lower() == "spotify":
         text = f"♪  <i>{body}</i>  ♪" if status == "Paused" else f"♪  {body}  ♪"
@@ -89,7 +113,9 @@ def snapshot_and_emit() -> None:
 
 def timer_loop() -> None:
     while True:
-        time.sleep(5)
+        time.sleep(SCROLL_TICK)
+        with state_lock:
+            scroll["frame"] += 1
         snapshot_and_emit()
 
 
