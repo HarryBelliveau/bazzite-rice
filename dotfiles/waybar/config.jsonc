@@ -9,7 +9,12 @@
         "name": "secondary",
         "output": "DP-2",
 
-        "modules-right": ["tray", "pulseaudio", "network"],
+        "modules-right": ["custom/user"],
+
+        "custom/user": {
+            "format": "Hahafoot",
+            "tooltip": false
+        },
 
         "hyprland/workspaces": {
             "format": "⌘{name}",
