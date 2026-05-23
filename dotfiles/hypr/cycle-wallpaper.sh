@@ -83,6 +83,51 @@ apply_image() {
         "$wall" >/dev/null
 }
 
+# Wait (up to ~2.5s) for an mpv IPC socket to appear. mpv only creates the
+# socket once it's loaded the file and decoded the first frame, so this is
+# our signal that mpvpaper is parked on frame 0 and the surface holds it.
+_wait_for_mpv_socket() {
+    local sock="$1" i
+    for ((i = 0; i < 50; i++)); do
+        [[ -S "$sock" ]] && return 0
+        sleep 0.05
+    done
+    return 1
+}
+
+# Send `set_property pause false` over mpv's JSON IPC socket via python3
+# (we have no socat/ncat on this system). Best-effort — failures are silent.
+_mpv_unpause() {
+    local sock="$1"
+    [[ -S "$sock" ]] || return 1
+    python3 -c '
+import socket, sys
+s = socket.socket(socket.AF_UNIX)
+s.connect(sys.argv[1])
+s.sendall(b"{\"command\":[\"set_property\",\"pause\",false]}\n")
+' "$sock" >/dev/null 2>&1
+}
+
+# Extract (and cache) the first frame of a video file. Echoes the cache path
+# on success; nothing on failure. Used to play a swww transition before
+# mpvpaper claims the surface so videos don't pop in cold.
+_extract_video_frame() {
+    local wall="$1"
+    command -v ffmpeg >/dev/null || return 1
+    local fdir="$STATE_DIR/video-frames"
+    mkdir -p "$fdir"
+    local mtime
+    mtime=$(stat -c %Y "$wall" 2>/dev/null || echo 0)
+    local key
+    key=$(printf '%s\0%s' "$wall" "$mtime" | sha1sum | cut -d' ' -f1)
+    local frame_file="$fdir/${key}.png"
+    if [[ ! -s "$frame_file" ]]; then
+        ffmpeg -hide_banner -loglevel error -y -i "$wall" -frames:v 1 \
+            "$frame_file" </dev/null >/dev/null 2>&1 || return 1
+    fi
+    [[ -s "$frame_file" ]] && printf '%s\n' "$frame_file"
+}
+
 apply_video() {
     local mon="$1" wall="$2"
     if ! command -v mpvpaper >/dev/null; then
@@ -91,13 +136,37 @@ apply_video() {
             2>/dev/null || true
         return
     fi
-    stop_mpvpaper_for "$mon"
-    # Release this monitor from swww so mpvpaper can claim the surface cleanly.
     ensure_swww_running
-    swww clear --outputs "$mon" 000000 >/dev/null 2>&1 || true
-    setsid mpvpaper -o "no-audio loop-file=inf hwdec=auto" "$mon" "$wall" \
-        >/dev/null 2>&1 < /dev/null &
+
+    # 1. Start the swww fade to the still first frame.
+    local frame has_frame=0
+    frame=$(_extract_video_frame "$wall")
+    stop_mpvpaper_for "$mon"
+    if [[ -n "$frame" ]]; then
+        swww img --outputs "$mon" \
+            --transition-type any --transition-fps 60 --transition-duration 1 \
+            "$frame" >/dev/null
+        has_frame=1
+    fi
+
+    # 2. Spawn mpvpaper paused IN PARALLEL with the fade so mpv decodes the
+    #    first frame while swww is still animating. No swww clear here — it
+    #    would wipe the still frame mid-transition and cause a black flash.
+    local ipc_dir="$STATE_DIR/mpvpaper-ipc"
+    mkdir -p "$ipc_dir"
+    local sock="$ipc_dir/${mon}.sock"
+    rm -f "$sock"
+    setsid mpvpaper \
+        -o "no-audio loop-file=inf hwdec=auto pause input-ipc-server=${sock}" \
+        "$mon" "$wall" >/dev/null 2>&1 < /dev/null &
     echo "$!" > "$STATE_DIR/mpvpaper-$mon.pid"
+
+    # 3. Wait for the transition to finish AND mpv to be parked on frame 0,
+    #    then unpause. mpv's first frame matches the still swww just landed
+    #    on, so the surface handoff is invisible.
+    (( has_frame )) && sleep 1
+    _wait_for_mpv_socket "$sock"
+    _mpv_unpause "$sock"
 }
 
 apply_wallpaper() {
@@ -323,9 +392,22 @@ apply_spanned_video() {
 
     ensure_swww_running
 
+    # 1. Play the swww fade into a still first frame across every monitor.
+    #    apply_spanned_image already stops any running mpvpaper per output
+    #    and writes the per-monitor crops with the same layout math, so the
+    #    still frame and the live video align exactly.
+    local frame has_frame=0
+    frame=$(_extract_video_frame "$wall")
+    if [[ -n "$frame" ]]; then
+        apply_spanned_image "$frame"
+        has_frame=1
+    fi
+
+    # 2. Spawn every mpvpaper paused IN PARALLEL with the swww fade so mpv
+    #    has a full second to load + decode the first frame. No per-monitor
+    #    swww clear here — that would wipe the still mid-transition.
     local ipc_dir="$STATE_DIR/mpvpaper-ipc"
     mkdir -p "$ipc_dir"
-
     local -a mons sockets
     local _tag mon mnw mnh mlw mlh crop_x crop_y
     while IFS=$'\t' read -r _tag mon mnw mnh mlw mlh crop_x crop_y; do
@@ -341,9 +423,8 @@ apply_spanned_video() {
         (( vcrop_y + vcrop_h > src_h )) && vcrop_h=$(( src_h - vcrop_y ))
 
         local sock="$ipc_dir/${mon}.sock"
-        stop_mpvpaper_for "$mon"
+        # apply_spanned_image already stopped mpvpaper for this monitor.
         rm -f "$sock"
-        swww clear --outputs "$mon" 000000 >/dev/null 2>&1 || true
         setsid mpvpaper \
             -o "no-audio loop-file=inf hwdec=auto pause input-ipc-server=${sock} vf=crop=${vcrop_w}:${vcrop_h}:${vcrop_x}:${vcrop_y}" \
             "$mon" "$wall" >/dev/null 2>&1 < /dev/null &
@@ -358,27 +439,19 @@ apply_spanned_video() {
         done
     done <<< "$layout"
 
-    # Wait for every IPC socket to exist (mpv has opened the file, decoded
-    # the first frame, and is parked on the pause). Cap the wait so a stuck
-    # instance can't block forever.
-    local s _retry
+    # 3. Wait out the rest of the swww fade, then confirm every mpv is
+    #    parked on its first frame. By now mpv has been preparing for ~1s,
+    #    so the socket-wait is usually a no-op.
+    (( has_frame )) && sleep 1
+    local s
     for s in "${sockets[@]}"; do
-        for _retry in {1..50}; do
-            [[ -S "$s" ]] && break
-            sleep 0.05
-        done
+        _wait_for_mpv_socket "$s"
     done
 
-    # Unpause every instance in parallel so the start-of-playback offset
-    # between monitors is one OS context-switch, not one mpv startup.
+    # 4. Unpause every instance in parallel — start-of-playback offset
+    #    between monitors becomes one OS context-switch, not one mpv start.
     for s in "${sockets[@]}"; do
-        [[ -S "$s" ]] || continue
-        python3 -c '
-import socket, sys
-s = socket.socket(socket.AF_UNIX)
-s.connect(sys.argv[1])
-s.sendall(b"{\"command\":[\"set_property\",\"pause\",false]}\n")
-' "$s" >/dev/null 2>&1 &
+        _mpv_unpause "$s" &
     done
     wait
 }
