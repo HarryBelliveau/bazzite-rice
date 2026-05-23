@@ -24,7 +24,9 @@ STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/hypr"
 mkdir -p "$STATE_DIR"
 
 mapfile -d '' -t walls < <(
-    find "$WALL_DIR" -maxdepth 1 -type f \
+    find "$WALL_DIR" \
+        \( -type d -name '__MACOSX' \) -prune -o \
+        -type f ! -name '._*' \
         \( -iname '*.png'  -o -iname '*.jpg' -o -iname '*.jpeg' \
         -o -iname '*.webp' -o -iname '*.jxl' -o -iname '*.gif' \
         -o -iname '*.mp4'  -o -iname '*.webm' -o -iname '*.mkv' \

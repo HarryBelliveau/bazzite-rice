@@ -39,14 +39,12 @@
   WALLPAPERS
   ----------
     SUPER + SHIFT + P           waypaper (GUI picker)
-    SUPER + W                   enter wallpaper submap, then:
-                                  1                 cycle DP-1 wallpaper (next)
-                                  2                 cycle DP-2 wallpaper (next)
-                                  SHIFT + 1         DP-1 previous
-                                  SHIFT + 2         DP-2 previous
-                                  Esc / Ret / Spc   exit submap
-                                (submap auto-exits after 3 s)
-    Wallpapers live in: <repo>/wallpapers/
+    SUPER + W                   terminal wallpaper picker (kitty + fzf), then:
+                                  Enter             apply to all monitors
+                                  Alt + 1           apply to DP-1
+                                  Alt + 2           apply to DP-2
+                                  Esc               cancel
+    Wallpapers live in: <repo>/wallpapers/ (searched recursively).
     Images use swww, videos (.mp4/.webm/.mkv/.mov) use mpvpaper.
 
 
