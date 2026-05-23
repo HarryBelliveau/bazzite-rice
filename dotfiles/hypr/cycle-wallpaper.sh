@@ -138,12 +138,16 @@ apply_video() {
     fi
     ensure_swww_running
 
-    # 1. Start the swww fade to the still first frame.
+    # 1. Start the swww fade to the still first frame. Fit-with-black-fill so
+    #    the still frame is letterboxed exactly like mpv will render the live
+    #    video — otherwise swww's default crop-to-fill leaves a zoom-cropped
+    #    frame visible through the video's letterbox bars during playback.
     local frame has_frame=0
     frame=$(_extract_video_frame "$wall")
     stop_mpvpaper_for "$mon"
     if [[ -n "$frame" ]]; then
         swww img --outputs "$mon" \
+            --resize fit --fill-color 000000 \
             --transition-type any --transition-fps 60 --transition-duration 1 \
             "$frame" >/dev/null
         has_frame=1
