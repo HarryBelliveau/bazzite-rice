@@ -44,6 +44,10 @@ fi
 is_video() {
     case "${1,,}" in
         *.mp4|*.webm|*.mkv|*.mov) return 0 ;;
+        # GIFs route through mpvpaper too: when spanning, swww's per-monitor
+        # animation workers run on independent clocks and drift out of sync,
+        # while parallel mpv processes started together stay frame-aligned.
+        *.gif) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -186,8 +190,10 @@ _span_layout() {
     printf 'IMG\t%s\t%s\t%s\t%s\t%s\n' "$img_w" "$img_h" "$img_left" "$img_top" "$layout_hash"
 }
 
-# Apply a still image spanned across all monitors. Per-monitor slices are
-# rendered with ImageMagick at native pixel resolution and cached on disk.
+# Apply a still or animated image spanned across all monitors. Per-monitor
+# slices are cropped from the SOURCE coordinates (not from a pre-upscaled
+# canvas), so a small gif doesn't get scaled up 10× just to be cut. Animated
+# GIFs are coalesced and re-emitted as multi-frame GIFs so swww plays them.
 apply_spanned_image() {
     local wall="$1"
     local im_cmd
@@ -209,10 +215,12 @@ apply_spanned_image() {
         return 1
     fi
 
+    local is_animated=0 out_ext=png
+    [[ "${wall,,}" == *.gif ]] && { is_animated=1; out_ext=gif; }
+
     local layout
     layout=$(_span_layout "$src_w" "$src_h") || return 1
 
-    # Parse the final IMG line for image dimensions + layout hash.
     local img_w img_h img_left img_top layout_hash
     read -r _ img_w img_h img_left img_top layout_hash < <(printf '%s\n' "$layout" | awk '$1 == "IMG"')
 
@@ -230,12 +238,33 @@ apply_spanned_image() {
     local _tag mon mnw mnh mlw mlh crop_x crop_y
     while IFS=$'\t' read -r _tag mon mnw mnh mlw mlh crop_x crop_y; do
         [[ "$_tag" != "MON" ]] && continue
-        local crop_file="$cache_dir/${key}-${mon}.png"
+        local crop_file="$cache_dir/${key}-${mon}.${out_ext}"
         if [[ ! -s "$crop_file" ]]; then
-            "$im_cmd" "$wall" -resize "${img_w}x${img_h}!" \
-                -crop "${mlw}x${mlh}+${crop_x}+${crop_y}" +repage \
-                -resize "${mnw}x${mnh}!" \
-                "$crop_file"
+            # Translate the per-monitor slice from scaled-image pixels into
+            # source pixels (aspect preserved, so the width ratio suffices).
+            local scrop_x=$(( crop_x * src_w / img_w ))
+            local scrop_y=$(( crop_y * src_w / img_w ))
+            local scrop_w=$(( mlw    * src_w / img_w ))
+            local scrop_h=$(( mlh    * src_w / img_w ))
+            (( scrop_x < 0 )) && scrop_x=0
+            (( scrop_y < 0 )) && scrop_y=0
+            (( scrop_x + scrop_w > src_w )) && scrop_w=$(( src_w - scrop_x ))
+            (( scrop_y + scrop_h > src_h )) && scrop_h=$(( src_h - scrop_y ))
+
+            if (( is_animated )); then
+                # Don't upscale each frame to native pixels — that bloats the
+                # cached GIF wildly (a 498px source × 44 frames upscaled to
+                # 2560×1440 = ~40 MB). Ship the source-sized slice; swww
+                # scales to the monitor on playback.
+                "$im_cmd" "$wall" -coalesce \
+                    -crop "${scrop_w}x${scrop_h}+${scrop_x}+${scrop_y}" +repage \
+                    "$crop_file"
+            else
+                "$im_cmd" "$wall" \
+                    -crop "${scrop_w}x${scrop_h}+${scrop_x}+${scrop_y}" +repage \
+                    -resize "${mnw}x${mnh}!" \
+                    "$crop_file"
+            fi
         fi
 
         stop_mpvpaper_for "$mon"
@@ -251,11 +280,19 @@ apply_spanned_image() {
     done <<< "$layout"
 }
 
-# Apply a video spanned across all monitors via mpvpaper. mpv handles the
-# crop on the GPU during playback (no pre-encoding), so each monitor gets
-# its slice of the same video stream in lockstep. The crop is computed in
-# the spanning layout's scaled-image coordinates, then converted back to
-# source-video pixel coordinates for mpv's `crop` filter.
+# Apply a video (or animated GIF) spanned across all monitors via mpvpaper.
+# mpv crops on the GPU during playback (no pre-encoding); a synchronized
+# launch pattern keeps animations frame-aligned across monitors:
+#
+#   1. Spawn every mpvpaper instance with `pause` + `input-ipc-server=…`
+#      so each mpv decodes and seeks to frame 0 but holds, hiding the
+#      per-process startup variance.
+#   2. Wait for every IPC socket to appear (mpv has finished its prep).
+#   3. Fire `pause false` at all sockets in parallel so they begin playing
+#      within one kernel-scheduling slice of each other.
+#
+# Per-monitor crop is computed in the spanning layout's scaled-image coords
+# then mapped back into source-video pixel coords for mpv's `crop` filter.
 apply_spanned_video() {
     local wall="$1"
     if ! command -v mpvpaper >/dev/null; then
@@ -286,28 +323,33 @@ apply_spanned_video() {
 
     ensure_swww_running
 
+    local ipc_dir="$STATE_DIR/mpvpaper-ipc"
+    mkdir -p "$ipc_dir"
+
+    local -a mons sockets
     local _tag mon mnw mnh mlw mlh crop_x crop_y
     while IFS=$'\t' read -r _tag mon mnw mnh mlw mlh crop_x crop_y; do
         [[ "$_tag" != "MON" ]] && continue
 
-        # Translate the per-monitor crop from scaled-image pixels into the
-        # source video's own pixel coordinates (aspect is preserved, so any
-        # axis ratio works — use width).
         local vcrop_x=$(( crop_x * src_w / img_w ))
         local vcrop_y=$(( crop_y * src_w / img_w ))
         local vcrop_w=$(( mlw    * src_w / img_w ))
         local vcrop_h=$(( mlh    * src_w / img_w ))
-        # Clamp to source bounds — integer math can land 1px past.
         (( vcrop_x < 0 )) && vcrop_x=0
         (( vcrop_y < 0 )) && vcrop_y=0
         (( vcrop_x + vcrop_w > src_w )) && vcrop_w=$(( src_w - vcrop_x ))
         (( vcrop_y + vcrop_h > src_h )) && vcrop_h=$(( src_h - vcrop_y ))
 
+        local sock="$ipc_dir/${mon}.sock"
         stop_mpvpaper_for "$mon"
+        rm -f "$sock"
         swww clear --outputs "$mon" 000000 >/dev/null 2>&1 || true
-        setsid mpvpaper -o "no-audio loop-file=inf hwdec=auto vf=crop=${vcrop_w}:${vcrop_h}:${vcrop_x}:${vcrop_y}" \
+        setsid mpvpaper \
+            -o "no-audio loop-file=inf hwdec=auto pause input-ipc-server=${sock} vf=crop=${vcrop_w}:${vcrop_h}:${vcrop_x}:${vcrop_y}" \
             "$mon" "$wall" >/dev/null 2>&1 < /dev/null &
         echo "$!" > "$STATE_DIR/mpvpaper-$mon.pid"
+        mons+=("$mon")
+        sockets+=("$sock")
 
         local state_file="$STATE_DIR/wallpaper-index-$mon"
         local j
@@ -315,6 +357,30 @@ apply_spanned_video() {
             [[ "${walls[$j]}" == "$wall" ]] && { echo "$j" > "$state_file"; break; }
         done
     done <<< "$layout"
+
+    # Wait for every IPC socket to exist (mpv has opened the file, decoded
+    # the first frame, and is parked on the pause). Cap the wait so a stuck
+    # instance can't block forever.
+    local s _retry
+    for s in "${sockets[@]}"; do
+        for _retry in {1..50}; do
+            [[ -S "$s" ]] && break
+            sleep 0.05
+        done
+    done
+
+    # Unpause every instance in parallel so the start-of-playback offset
+    # between monitors is one OS context-switch, not one mpv startup.
+    for s in "${sockets[@]}"; do
+        [[ -S "$s" ]] || continue
+        python3 -c '
+import socket, sys
+s = socket.socket(socket.AF_UNIX)
+s.connect(sys.argv[1])
+s.sendall(b"{\"command\":[\"set_property\",\"pause\",false]}\n")
+' "$s" >/dev/null 2>&1 &
+    done
+    wait
 }
 
 action="${1:-next}"

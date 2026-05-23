@@ -197,14 +197,30 @@ pick="$(printf '%s\n' "$selection" | sed -n '2p')"
 
 abs="$WALL_DIR/$pick"
 
+# Videos (and animated GIFs) take a moment to start: ffprobe, mpvpaper spawn,
+# IPC sync wait. Detach so the picker window closes immediately on pick.
+case "${abs,,}" in
+    *.mp4|*.webm|*.mkv|*.mov|*.gif) is_vid=1 ;;
+    *) is_vid=0 ;;
+esac
+
+run_cycle() {
+    if (( is_vid )); then
+        setsid "$CYCLE" "$@" >/dev/null 2>&1 < /dev/null &
+        disown
+    else
+        "$CYCLE" "$@"
+    fi
+}
+
 case "$key" in
-    alt-1) "$CYCLE" pick "$abs" DP-1 ;;
-    alt-2) "$CYCLE" pick "$abs" DP-2 ;;
+    alt-1) run_cycle pick "$abs" DP-1 ;;
+    alt-2) run_cycle pick "$abs" DP-2 ;;
     *)
         if [[ -n "$target_mon" ]]; then
-            "$CYCLE" pick "$abs" "$target_mon"
+            run_cycle pick "$abs" "$target_mon"
         else
-            "$CYCLE" span "$abs"
+            run_cycle span "$abs"
         fi
         ;;
 esac
