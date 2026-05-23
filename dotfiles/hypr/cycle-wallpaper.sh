@@ -105,14 +105,89 @@ apply_wallpaper() {
     fi
 }
 
-# Stretch one image across the union of all monitors so it reads as one
-# cohesive picture: scale the source (preserving aspect) so that when it's
-# centered on the LARGEST monitor it still reaches the far edge of every
-# other monitor, then per monitor crop out its slice and resample to native
-# pixel buffer. No black fill, no apparent duplication near the seam, and
-# the main subject sits prominently on the largest monitor.
-# Respects Wayland transforms so rotated panels (transform 1/3/5/7) get a
-# portrait-oriented slice.
+# Compute the spanned-wallpaper layout given a source's pixel dimensions.
+# Emits one MON line per monitor and one IMG line at the end (tab-separated):
+#   MON  name  native_w  native_h  mlw  mlh  crop_x  crop_y
+#   IMG  img_w  img_h  img_left  img_top  layout_hash
+# crop_x/crop_y are the monitor's offset into the scaled image; img_left
+# and img_top are the scaled image's compositor-coord position. The layout
+# hash fingerprints monitor positions/sizes/transforms for cache keying.
+#
+# Strategy: anchor the image on the LARGEST monitor's center and scale
+# (preserving source aspect) until it reaches the farthest monitor edge in
+# both axes. Result: no black fill, no duplicate-looking content near the
+# seam, main subject lands on the primary monitor.
+_span_layout() {
+    local src_w="$1" src_h="$2"
+
+    # name native_w native_h sx sy lw lh (logical post-transform/post-scale)
+    local layout
+    layout=$(hyprctl monitors -j | jq -r '
+        def lw: if (.transform % 2) == 1 then .height else .width  end;
+        def lh: if (.transform % 2) == 1 then .width  else .height end;
+        .[] |
+        [ .name, lw, lh, .x, .y,
+          (lw / .scale | round),
+          (lh / .scale | round)
+        ] | @tsv
+    ')
+    [[ -z "$layout" ]] && return 1
+
+    local -a names nws nhs sxs sys lws lhs
+    local n=0 largest=0 largest_area=0
+    local name nw nh sx sy lw lh
+    while IFS=$'\t' read -r name nw nh sx sy lw lh; do
+        [[ -z "$name" ]] && continue
+        names+=("$name"); nws+=("$nw"); nhs+=("$nh")
+        sxs+=("$sx");   sys+=("$sy");   lws+=("$lw"); lhs+=("$lh")
+        local area=$(( lw * lh ))
+        (( area > largest_area )) && { largest_area=$area; largest=$n; }
+        n=$(( n + 1 ))
+    done <<< "$layout"
+
+    local lcx=$(( sxs[largest] + lws[largest] / 2 ))
+    local lcy=$(( sys[largest] + lhs[largest] / 2 ))
+
+    local max_hx=0 max_vy=0
+    local i d
+    for ((i = 0; i < n; i++)); do
+        local ml=${sxs[i]} mt=${sys[i]}
+        local mr=$(( ml + lws[i] )) mb=$(( mt + lhs[i] ))
+        for d in $(( ml - lcx )) $(( mr - lcx )); do
+            (( d < 0 )) && d=$(( -d ))
+            (( d > max_hx )) && max_hx=$d
+        done
+        for d in $(( mt - lcy )) $(( mb - lcy )); do
+            (( d < 0 )) && d=$(( -d ))
+            (( d > max_vy )) && max_vy=$d
+        done
+    done
+    local need_w=$(( max_hx * 2 )) need_h=$(( max_vy * 2 ))
+
+    local img_w img_h
+    if (( need_w * src_h >= need_h * src_w )); then
+        img_w=$need_w
+        img_h=$(( src_h * need_w / src_w ))
+    else
+        img_h=$need_h
+        img_w=$(( src_w * need_h / src_h ))
+    fi
+    local img_left=$(( lcx - img_w / 2 ))
+    local img_top=$(( lcy - img_h / 2 ))
+
+    for ((i = 0; i < n; i++)); do
+        local cx=$(( sxs[i] - img_left ))
+        local cy=$(( sys[i] - img_top ))
+        printf 'MON\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+            "${names[i]}" "${nws[i]}" "${nhs[i]}" "${lws[i]}" "${lhs[i]}" "$cx" "$cy"
+    done
+    local layout_hash
+    layout_hash=$(printf '%s' "$layout" | sha1sum | cut -d' ' -f1)
+    printf 'IMG\t%s\t%s\t%s\t%s\t%s\n' "$img_w" "$img_h" "$img_left" "$img_top" "$layout_hash"
+}
+
+# Apply a still image spanned across all monitors. Per-monitor slices are
+# rendered with ImageMagick at native pixel resolution and cached on disk.
 apply_spanned_image() {
     local wall="$1"
     local im_cmd
@@ -134,73 +209,12 @@ apply_spanned_image() {
         return 1
     fi
 
-    # Per-monitor layout. Each tab-separated line:
-    #   name  native_w  native_h  sx  sy  lw  lh
-    # native_* is the pixel buffer size swww writes (post-transform);
-    # sx,sy is the monitor's top-left in compositor coords;
-    # lw,lh is the monitor's logical (post-transform, post-scale) size.
     local layout
-    layout=$(hyprctl monitors -j | jq -r '
-        def lw: if (.transform % 2) == 1 then .height else .width  end;
-        def lh: if (.transform % 2) == 1 then .width  else .height end;
-        .[] |
-        [ .name, lw, lh, .x, .y,
-          (lw / .scale | round),
-          (lh / .scale | round)
-        ] | @tsv
-    ')
-    if [[ -z "$layout" ]]; then
-        echo "no monitors detected" >&2
-        return 1
-    fi
+    layout=$(_span_layout "$src_w" "$src_h") || return 1
 
-    local -a names nws nhs sxs sys lws lhs
-    local n=0 largest=0 largest_area=0
-    local name nw nh sx sy lw lh
-    while IFS=$'\t' read -r name nw nh sx sy lw lh; do
-        [[ -z "$name" ]] && continue
-        names+=("$name"); nws+=("$nw"); nhs+=("$nh")
-        sxs+=("$sx");   sys+=("$sy");   lws+=("$lw"); lhs+=("$lh")
-        local area=$(( lw * lh ))
-        (( area > largest_area )) && { largest_area=$area; largest=$n; }
-        n=$(( n + 1 ))
-    done <<< "$layout"
-
-    # Anchor everything on the largest monitor's center (compositor coords).
-    local lcx=$(( sxs[largest] + lws[largest] / 2 ))
-    local lcy=$(( sys[largest] + lhs[largest] / 2 ))
-
-    # Image must extend from the anchor outward to the farthest monitor edge
-    # in each direction. The required image dimensions are 2× the max abs
-    # offset from the anchor to any monitor corner. abs() via two-arg max.
-    local max_hx=0 max_vy=0
-    local i d
-    for ((i = 0; i < n; i++)); do
-        local ml=${sxs[i]} mt=${sys[i]}
-        local mr=$(( ml + lws[i] )) mb=$(( mt + lhs[i] ))
-        for d in $(( ml - lcx )) $(( mr - lcx )); do
-            (( d < 0 )) && d=$(( -d ))
-            (( d > max_hx )) && max_hx=$d
-        done
-        for d in $(( mt - lcy )) $(( mb - lcy )); do
-            (( d < 0 )) && d=$(( -d ))
-            (( d > max_vy )) && max_vy=$d
-        done
-    done
-    local need_w=$(( max_hx * 2 )) need_h=$(( max_vy * 2 ))
-
-    # Cover both required dimensions while preserving source aspect. Compare
-    # ratios via cross-multiplication to avoid floating point.
-    local img_w img_h
-    if (( need_w * src_h >= need_h * src_w )); then
-        img_w=$need_w
-        img_h=$(( src_h * need_w / src_w ))
-    else
-        img_h=$need_h
-        img_w=$(( src_w * need_h / src_h ))
-    fi
-    local img_left=$(( lcx - img_w / 2 ))
-    local img_top=$(( lcy - img_h / 2 ))
+    # Parse the final IMG line for image dimensions + layout hash.
+    local img_w img_h img_left img_top layout_hash
+    read -r _ img_w img_h img_left img_top layout_hash < <(printf '%s\n' "$layout" | awk '$1 == "IMG"')
 
     local cache_dir="$STATE_DIR/spanned-cache"
     mkdir -p "$cache_dir"
@@ -208,23 +222,16 @@ apply_spanned_image() {
     mtime=$(stat -c %Y "$wall" 2>/dev/null || echo 0)
     local key
     key=$(printf '%s\0%s\0%s\0%dx%d@%d,%d' \
-            "$wall" "$mtime" "$layout" "$img_w" "$img_h" "$img_left" "$img_top" \
+            "$wall" "$mtime" "$layout_hash" "$img_w" "$img_h" "$img_left" "$img_top" \
           | sha1sum | cut -d' ' -f1)
 
     ensure_swww_running
 
-    for ((i = 0; i < n; i++)); do
-        local mon="${names[i]}"
-        local mnw="${nws[i]}" mnh="${nhs[i]}"
-        local msx="${sxs[i]}" msy="${sys[i]}"
-        local mlw="${lws[i]}" mlh="${lhs[i]}"
+    local _tag mon mnw mnh mlw mlh crop_x crop_y
+    while IFS=$'\t' read -r _tag mon mnw mnh mlw mlh crop_x crop_y; do
+        [[ "$_tag" != "MON" ]] && continue
         local crop_file="$cache_dir/${key}-${mon}.png"
-
         if [[ ! -s "$crop_file" ]]; then
-            # By construction the scaled image fully covers every monitor;
-            # crop straight out at the monitor's offset into the image.
-            local crop_x=$(( msx - img_left ))
-            local crop_y=$(( msy - img_top ))
             "$im_cmd" "$wall" -resize "${img_w}x${img_h}!" \
                 -crop "${mlw}x${mlh}+${crop_x}+${crop_y}" +repage \
                 -resize "${mnw}x${mnh}!" \
@@ -236,13 +243,78 @@ apply_spanned_image() {
             --transition-type any --transition-fps 60 --transition-duration 1 \
             "$crop_file" >/dev/null
 
-        # Keep cycle index aligned with the picked image.
         local state_file="$STATE_DIR/wallpaper-index-$mon"
         local j
         for j in "${!walls[@]}"; do
             [[ "${walls[$j]}" == "$wall" ]] && { echo "$j" > "$state_file"; break; }
         done
-    done
+    done <<< "$layout"
+}
+
+# Apply a video spanned across all monitors via mpvpaper. mpv handles the
+# crop on the GPU during playback (no pre-encoding), so each monitor gets
+# its slice of the same video stream in lockstep. The crop is computed in
+# the spanning layout's scaled-image coordinates, then converted back to
+# source-video pixel coordinates for mpv's `crop` filter.
+apply_spanned_video() {
+    local wall="$1"
+    if ! command -v mpvpaper >/dev/null; then
+        notify-send -u normal "Wallpaper" \
+            "mpvpaper not installed -- can't play $(basename "$wall")" \
+            2>/dev/null || true
+        return 1
+    fi
+    if ! command -v ffprobe >/dev/null; then
+        notify-send -u normal "Wallpaper" \
+            "ffprobe required to span videos" 2>/dev/null || true
+        return 1
+    fi
+
+    local src_w src_h
+    IFS=, read -r src_w src_h < <(ffprobe -v error -select_streams v:0 \
+        -show_entries stream=width,height -of csv=p=0 "$wall" 2>/dev/null)
+    if [[ -z "$src_w" || -z "$src_h" ]]; then
+        echo "couldn't read dimensions of $wall" >&2
+        return 1
+    fi
+
+    local layout
+    layout=$(_span_layout "$src_w" "$src_h") || return 1
+
+    local img_w img_h img_left img_top _hash
+    read -r _ img_w img_h img_left img_top _hash < <(printf '%s\n' "$layout" | awk '$1 == "IMG"')
+
+    ensure_swww_running
+
+    local _tag mon mnw mnh mlw mlh crop_x crop_y
+    while IFS=$'\t' read -r _tag mon mnw mnh mlw mlh crop_x crop_y; do
+        [[ "$_tag" != "MON" ]] && continue
+
+        # Translate the per-monitor crop from scaled-image pixels into the
+        # source video's own pixel coordinates (aspect is preserved, so any
+        # axis ratio works — use width).
+        local vcrop_x=$(( crop_x * src_w / img_w ))
+        local vcrop_y=$(( crop_y * src_w / img_w ))
+        local vcrop_w=$(( mlw    * src_w / img_w ))
+        local vcrop_h=$(( mlh    * src_w / img_w ))
+        # Clamp to source bounds — integer math can land 1px past.
+        (( vcrop_x < 0 )) && vcrop_x=0
+        (( vcrop_y < 0 )) && vcrop_y=0
+        (( vcrop_x + vcrop_w > src_w )) && vcrop_w=$(( src_w - vcrop_x ))
+        (( vcrop_y + vcrop_h > src_h )) && vcrop_h=$(( src_h - vcrop_y ))
+
+        stop_mpvpaper_for "$mon"
+        swww clear --outputs "$mon" 000000 >/dev/null 2>&1 || true
+        setsid mpvpaper -o "no-audio loop-file=inf hwdec=auto vf=crop=${vcrop_w}:${vcrop_h}:${vcrop_x}:${vcrop_y}" \
+            "$mon" "$wall" >/dev/null 2>&1 < /dev/null &
+        echo "$!" > "$STATE_DIR/mpvpaper-$mon.pid"
+
+        local state_file="$STATE_DIR/wallpaper-index-$mon"
+        local j
+        for j in "${!walls[@]}"; do
+            [[ "${walls[$j]}" == "$wall" ]] && { echo "$j" > "$state_file"; break; }
+        done
+    done <<< "$layout"
 }
 
 action="${1:-next}"
@@ -251,16 +323,7 @@ if [[ "$action" == "span" ]]; then
     span_path="${2:-}"
     [[ -z "$span_path" ]] && { echo "span requires a path" >&2; exit 2; }
     if is_video "$span_path"; then
-        notify-send -u normal "Wallpaper" \
-            "Can't span videos — applying to each monitor" 2>/dev/null || true
-        mapfile -t monitors < <(hyprctl monitors -j | jq -r '.[].name')
-        for mon in "${monitors[@]}"; do
-            state_file="$STATE_DIR/wallpaper-index-$mon"
-            for i in "${!walls[@]}"; do
-                [[ "${walls[$i]}" == "$span_path" ]] && { echo "$i" > "$state_file"; break; }
-            done
-            apply_wallpaper "$mon" "$span_path"
-        done
+        apply_spanned_video "$span_path"
     else
         apply_spanned_image "$span_path"
     fi
