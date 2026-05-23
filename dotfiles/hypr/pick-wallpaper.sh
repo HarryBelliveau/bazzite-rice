@@ -167,7 +167,7 @@ if [[ -z "$(find_walls all)" ]]; then
     exit 1
 fi
 
-header="TAB: filter (all/images/videos)   ENTER: apply to all monitors   ALT-1: DP-1   ALT-2: DP-2   ESC: cancel"
+header="TAB: filter (all/images/videos)   ENTER: span across monitors   ALT-1: DP-1   ALT-2: DP-2   ESC: cancel"
 [[ -n "$target_mon" ]] && header="TAB: filter (all/images/videos)   ENTER: apply to $target_mon   ESC: cancel"
 
 script_q="$(printf '%q' "$SCRIPT_REAL")"
@@ -204,7 +204,7 @@ case "$key" in
         if [[ -n "$target_mon" ]]; then
             "$CYCLE" pick "$abs" "$target_mon"
         else
-            "$CYCLE" pick "$abs"
+            "$CYCLE" span "$abs"
         fi
         ;;
 esac
