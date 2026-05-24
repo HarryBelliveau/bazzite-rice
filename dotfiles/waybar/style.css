@@ -100,3 +100,38 @@ window#waybar {
 #custom-cpu, #custom-gpu          { color: @subtext; }
 #custom-cpu.warning, #custom-gpu.warning   { color: @yellow; }
 #custom-cpu.critical, #custom-gpu.critical { color: @red; }
+
+/* Shrink everything on the secondary bar (DP-3, 1080p) so the chrome is
+   proportionally smaller than on the main 1440p monitor. Targets bar by the
+   "name": "secondary" set in config.jsonc. */
+window#waybar.secondary * {
+    font-size: 12px;
+}
+window#waybar.secondary #workspaces button {
+    min-height: 22px;
+    padding: 0 7px;
+    margin: 0 3px;
+    border-width: 1px;
+}
+window#waybar.secondary #workspaces button.empty {
+    padding-left: 13px;
+    padding-right: 7px;
+    min-width: 20px;
+}
+window#waybar.secondary .modules-center,
+window#waybar.secondary .modules-right {
+    padding: 1px 7px;
+    margin: 0 3px;
+}
+window#waybar.secondary #clock,
+window#waybar.secondary #mpris,
+window#waybar.secondary #custom-media {
+    padding: 0 7px;
+}
+window#waybar.secondary #network,
+window#waybar.secondary #pulseaudio,
+window#waybar.secondary #tray,
+window#waybar.secondary #custom-cpu,
+window#waybar.secondary #custom-gpu {
+    padding: 0 6px;
+}

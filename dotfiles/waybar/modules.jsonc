@@ -18,10 +18,10 @@
         "all-outputs": false,
         "on-click": "activate",
 
-        "window-rewrite-default": ":default:",
+        "window-rewrite-default": "▢",
         "window-rewrite": {
             "class<kitty>":                  ":kitty:",
-            "class<keybinds-cheatsheet>":   "",
+            "class<keybinds-cheatsheet>":   "▢",
 
             "class<.*[Aa]lacritty.*>":      ":alacritty:",
             "class<.*[Ff]oot.*>":           ":terminal:",

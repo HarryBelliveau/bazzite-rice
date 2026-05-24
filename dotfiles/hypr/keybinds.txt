@@ -1,6 +1,6 @@
                               HYPRLAND KEYBINDS
                               =================
-                      (press q or Esc to close this window)
+              (press q or Esc to close, or click on another window)
 
   Mod = SUPER (Windows key)
 
