@@ -2,7 +2,7 @@
 
 A custom Bazzite GNOME image with Hyprland baked in, built via [BlueBuild](https://blue-build.org/) and published to GHCR. Implements **Method B** of [instructions.md](instructions.md).
 
-Image: `ghcr.io/hahafoot/bazzite-rice:latest`
+Image: `ghcr.io/harry-belliveau/bazzite-rice:latest`
 
 ## What's inside
 
@@ -26,11 +26,11 @@ The rebase is a two-step dance: first to the **unsigned** ref so the signing pol
 
 ```bash
 # 1. Rebase to the unsigned image (installs the signing policy)
-rpm-ostree rebase ostree-unverified-registry:ghcr.io/hahafoot/bazzite-rice:latest
+rpm-ostree rebase ostree-unverified-registry:ghcr.io/harry-belliveau/bazzite-rice:latest
 systemctl reboot
 
 # 2. Rebase to the signed image (verified going forward)
-rpm-ostree rebase ostree-image-signed:docker://ghcr.io/hahafoot/bazzite-rice:latest
+rpm-ostree rebase ostree-image-signed:docker://ghcr.io/harry-belliveau/bazzite-rice:latest
 systemctl reboot
 ```
 
@@ -41,7 +41,7 @@ After the second reboot, pick **Hyprland** from the GDM session menu (gear icon 
 Clone this repo and run the install script:
 
 ```bash
-git clone https://github.com/hahafoot/bazzite-rice.git ~/Documents/bazzite-rice
+git clone https://github.com/harry-belliveau/bazzite-rice.git ~/Documents/bazzite-rice
 bash ~/Documents/bazzite-rice/dotfiles/install.sh
 ```
 
