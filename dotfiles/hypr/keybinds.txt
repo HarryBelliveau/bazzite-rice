@@ -34,7 +34,7 @@
     SUPER + 0                   switch to workspace 10
     SUPER + SHIFT + 1 ... 9     move active window to workspace N
     SUPER + SHIFT + 0           move active window to workspace 10
-    SUPER + O                   swap workspaces between DP-1 and DP-2
+    SUPER + O                   swap workspaces between DP-1 (left) and DP-3 (right)
 
 
   WALLPAPERS
@@ -42,8 +42,8 @@
     SUPER + SHIFT + P           waypaper (GUI picker)
     SUPER + W                   terminal wallpaper picker (kitty + fzf), then:
                                   Enter             apply to all monitors
-                                  Alt + 1           apply to DP-1
-                                  Alt + 2           apply to DP-2
+                                  Alt + 1           apply to DP-1 (left, 1440p)
+                                  Alt + 3           apply to DP-3 (right, 1080p)
                                   Esc               cancel
     Wallpapers live in: <repo>/wallpapers/ (searched recursively).
     Images use swww, videos (.mp4/.webm/.mkv/.mov) use mpvpaper.
@@ -117,7 +117,7 @@
     Fix from any terminal:
       hyprctl reload                           # re-apply hyprland.conf  (primary fix)
       hyprctl dispatch submap reset            # free a stuck submap
-      hyprctl keyword monitor "DP-2, ..."      # one-off monitor override
+      hyprctl keyword monitor "DP-1, ..."      # one-off monitor override
       ~/.config/hypr/reload-watcher.sh         # restart workspace-watcher
 
     If even your terminal is unreachable, drop to a TTY (Ctrl+Alt+F3),

@@ -15,8 +15,7 @@
         "format": "⌘{name} <span font_family='sketchybar-app-font' rise='-3000'>{windows}</span>",
         "format-window-separator": " ",
         "show-special": false,
-        "all-outputs": true,
-        "persistent-workspaces": { "DP-1": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] },
+        "all-outputs": false,
         "on-click": "activate",
 
         "window-rewrite-default": ":default:",

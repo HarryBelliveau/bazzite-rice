@@ -167,7 +167,7 @@ if [[ -z "$(find_walls all)" ]]; then
     exit 1
 fi
 
-header="TAB: filter (all/images/videos)   ENTER: span across monitors   ALT-1: DP-1   ALT-2: DP-2   ESC: cancel"
+header="TAB: filter (all/images/videos)   ENTER: span across monitors   ALT-1: DP-1   ALT-3: DP-3   ESC: cancel"
 [[ -n "$target_mon" ]] && header="TAB: filter (all/images/videos)   ENTER: apply to $target_mon   ESC: cancel"
 
 script_q="$(printf '%q' "$SCRIPT_REAL")"
@@ -184,7 +184,7 @@ selection=$(eval "$list_cmd" | fzf \
     --header="$header" \
     --preview="$preview_cmd" \
     --preview-window='right,60%,border-left' \
-    --expect=alt-1,alt-2 \
+    --expect=alt-1,alt-3 \
     --bind="tab:execute-silent($rotate_cmd)+reload($list_cmd)+transform-prompt($prompt_cmd)" \
     --reverse \
     --no-mouse) || exit 0
@@ -215,7 +215,7 @@ run_cycle() {
 
 case "$key" in
     alt-1) run_cycle pick "$abs" DP-1 ;;
-    alt-2) run_cycle pick "$abs" DP-2 ;;
+    alt-3) run_cycle pick "$abs" DP-3 ;;
     *)
         if [[ -n "$target_mon" ]]; then
             run_cycle pick "$abs" "$target_mon"

@@ -2,7 +2,7 @@
 # Cycle through wallpapers in <repo>/wallpapers and apply them per monitor.
 #   - Images (.png .jpg .jpeg .webp .jxl .gif)  -> swww
 #   - Videos (.mp4 .webm .mkv .mov)             -> mpvpaper (live wallpaper)
-# Each monitor has its own index, so DP-1 and DP-2 cycle independently.
+# Each monitor has its own index, so DP-1 and DP-3 cycle independently.
 #
 # Note: animated gifs are treated as images and animate fine in swww. Only
 # real video containers go through mpvpaper.

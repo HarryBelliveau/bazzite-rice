@@ -7,21 +7,6 @@
     {
         "include": ["~/.config/waybar/modules.jsonc"],
         "name": "secondary",
-        "output": "DP-2",
-
-        "modules-right": ["custom/user"],
-
-        "custom/user": {
-            "format": "Hahafoot",
-            "tooltip": false
-        },
-
-        "hyprland/workspaces": {
-            "format": "⌘{name}",
-            "all-outputs": false,
-            "show-special": false,
-            "persistent-workspaces": {},
-            "on-click": "activate"
-        }
+        "output": "DP-3"
     }
 ]
