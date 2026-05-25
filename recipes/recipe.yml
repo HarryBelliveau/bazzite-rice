@@ -11,9 +11,13 @@ modules:
         - nett00n/hyprland
         # solopasha/hyprland for the live-wallpaper stack and nwg-look.
         - solopasha/hyprland
+        # ilyaz/LACT for the AMD GPU control panel (power cap, undervolt, fan
+        # curve). Used to keep the RX 5700 XT under PSU OCP trip thresholds.
+        - ilyaz/LACT
     install:
       packages:
         - hyprland
+        - hyprland-qtutils
         - xdg-desktop-portal-hyprland
         # Wallpaper daemon: swww (better-behaved than hyprpaper v0.8.4 and
         # supports per-monitor unload, which mpvpaper relies on).
@@ -48,5 +52,9 @@ modules:
         - mpvpaper
         - waypaper
         - mpv
+        # --- GPU control (AMD) ---
+        # LACT: power-limit / undervolt / fan curve for the RX 5700 XT.
+        # After install: `sudo systemctl enable --now lactd` then open `lact`.
+        - lact
 
   - type: signing
